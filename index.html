@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Seven digital objects from Computational Design Workshop, Summer 2026." />
+  <title>Seven Structures — Waner Li</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Beau+Rivage&family=Birthstone&family=Kalnia:wght@100..700&family=Ranchers&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Focus morph is deterministic CSS/WAAPI geometry; no turbulence shader. -->
+
+  <div id="app">
+    <header class="site-header">
+      <button class="symbol-button" id="homeButton" aria-label="Return to index">✦</button>
+      <nav class="mini-nav" aria-label="Primary navigation">
+        <button class="nav-link is-active" id="indexButton">Index</button>
+        <span>·</span>
+        <button class="nav-link" id="aboutButton">About</button>
+      </nav>
+      <div class="course-mark">CDW · 2026</div>
+    </header>
+
+    <main>
+      <!-- HOME / HORIZONTAL INDEX -->
+      <section class="index-view" id="indexView" aria-label="Project index">
+        <div class="index-track" id="indexTrack"></div>
+        <div class="index-hint" aria-hidden="true"><span>+</span><small>scroll</small></div>
+        <div class="index-footer">
+          <span>Waner Li</span>
+          <span>Seven Digital Objects</span>
+          <span>Computational Design Workflows</span>
+        </div>
+      </section>
+
+      <!-- PROJECT DETAIL: fixed title on the left; independent scrolling archive on the right. -->
+      <section class="project-view" id="projectView" aria-live="polite" aria-hidden="true">
+        <aside class="project-fixed">
+          <button class="back-link" id="backButton">← Index</button>
+          <div class="project-title-wrap">
+            <span class="project-number" id="projectNumber">01</span>
+            <h1 class="project-title" id="projectTitle">Spatial 2D</h1>
+            <span class="project-year">2026</span>
+          </div>
+          <div class="project-fixed-footer">
+            <p class="project-kicker" id="projectKicker">2D Spatial Canvas</p>
+            <span>Scroll archive ↓</span>
+          </div>
+        </aside>
+
+        <div class="project-scroll" id="projectScroll">
+          <div class="project-columns">
+            <!-- User asked for the first image column to become project-information boxes. -->
+            <div class="info-column" id="projectInfoColumn"></div>
+            <div class="image-column" id="projectGallery" aria-label="Project image gallery"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ABOUT -->
+      <section class="about-view" id="aboutView" aria-hidden="true">
+        <button class="about-close" id="aboutClose" aria-label="Close about panel">×</button>
+        <div class="about-grid">
+          <div>
+            <p class="eyebrow">Final Course Archive</p>
+            <h2>Seven Structures</h2>
+          </div>
+          <div class="about-copy">
+            <p>This website brings seven course exercises into one editorial archive: a 2D spatial canvas, 3D spatial canvas, temporal structure, relational structure, geospatial structure, engagement component, and agent.</p>
+            
+          </div>
+        </div>
+      </section>
+
+      <!-- DARK IMAGE FOCUS MODE -->
+      <section class="focus-view" id="focusView" aria-hidden="true">
+        <button class="focus-close focus-copy-item" id="focusClose" aria-label="Close image">×</button>
+        <div class="focus-left">
+          <div class="focus-project focus-copy-item" id="focusProject"></div>
+          <div class="focus-index focus-copy-item" id="focusIndex"></div>
+          <div class="focus-medium focus-copy-item" id="focusMedium"></div>
+        </div>
+        <figure class="focus-figure" id="focusFigure">
+          <div class="focus-image-shell" id="focusImageShell">
+            <img id="focusImage" src="" alt="" />
+          </div>
+        </figure>
+        <div class="focus-side focus-copy-item" id="focusSide"></div>
+        <div class="focus-caption focus-copy-item" id="focusCaption"></div>
+        <div class="focus-spinner focus-copy-item" aria-hidden="true">○</div>
+        <img class="focus-morph" id="focusMorph" alt="" aria-hidden="true" />
+      </section>
+
+      <div class="zoom-flash" id="zoomFlash" aria-hidden="true"></div>
+    </main>
+
+    <!-- Full-screen transparent WebGL layer used only while an image moves between
+         the project archive and dark focus view. -->
+    <canvas class="focus-webgl" id="focusWebGL" aria-hidden="true"></canvas>
+  </div>
+
+  <script src="js/projects.js"></script>
+  <script src="js/webgl-focus.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
