@@ -1,272 +1,122 @@
-# STYLE.md
+# Visual and Motion Direction
 
 ## Project
-**Computational Design Workshop — Final Archive**  
-A single website presenting seven digital objects produced throughout the course:
 
-1. Spatial 2D
-2. Spatial 3D
-3. Temporal Structure
-4. Relational Structure
-5. Geospatial Structure
-6. Engagement Component
-7. Agent
+**Waner Li — MSCDP Project Archive** integrates eleven projects from Computational Design Workflows and Mapping Systems. Course names provide context, but the site reads as one evolving design practice.
 
-The website is treated as a designed project in itself rather than as a simple collection of assignments.
+## Visual thesis
 
-## 1. Overall Visual Direction
+The archive pairs a nearly black cinematic stage with a single living strip of project imagery. Interface typography is quiet and precise; physical motion carries the personality.
 
-The visual language combines an **editorial portfolio**, an **experimental digital archive**, and a **fashion / cultural website interface**.
+The reference aesthetic depends on continuity:
 
-The interface should feel spacious, typographic, cinematic, precise, and soft in motion. The seven assignments use very different visual systems—including p5.js, Three.js, D3.js, Mapbox, Firebase, and an AI agent—so the surrounding interface remains controlled and consistent.
+- one image surface that changes state rather than separate page templates
+- soft materials that bend, stretch, and rebound
+- generous negative space
+- small, restrained interface labels
+- project imagery as the only persistent source of color
 
-The website therefore uses a limited neutral palette, oversized typography, rounded media, and carefully paced transitions.
-
-## 2. Color System
-
-### Main Interface
+## Palette
 
 ```css
---paper: #efefe8;
---ink: #11120f;
---muted: #77786f;
---line: rgba(17,18,15,.18);
+--black: #050505;
+--paper: #edede9;
+--paper-deep: #d9d9d3;
+--ink: #11110f;
+--white: #f5f5f0;
 ```
 
-The main pages use a warm off-white background rather than pure white. This gives the interface a softer editorial quality and helps screenshots sit naturally inside the page.
+Work and Info live on the black stage. Detail expands into warm paper rather than pure white. No permanent accent competes with project media.
 
-### Information Cards
+## Typography
 
-Project-description cards use the opposite visual treatment:
+The interface uses DM Sans with Helvetica/Arial fallbacks.
 
-```css
-background: #11120f;
-color: #f1f0e8;
+- Display titles: medium weight, tight tracking, compact leading.
+- Navigation and metadata: 8–10px, uppercase, generous tracking.
+- Body copy: compact sans serif with open line height.
+
+Typography should remain stable while geometry moves. Text transitions use clipping and vertical continuation, not full-panel opacity cuts.
+
+## Hierarchy
+
+The navigation is deliberately reduced to `Work`, `Info`, and `Index`.
+
+- Work is the default spatial archive.
+- Info explains the combined MSCDP practice without leaving the living ribbon.
+- Index is the efficient, low-motion catalogue.
+
+Course filters sit inside Work. They are secondary metadata, not top-level sections.
+
+## Work ribbon
+
+Project cards form a curved horizontal ribbon across the black stage. The active card remains largest and most frontal; neighboring cards recede along a shared curve. High-speed input adds bend and twist before the material settles.
+
+At load, the cards begin as a very small stepped stack. The stack itself unfolds into the final ribbon, maintaining texture identity throughout.
+
+## Info ring
+
+Info is not a separate About layout. The current ribbon pinches and wraps into an elliptical ring around a black center. Left and right portions remain visually connected to the ring, and scrolling continues to move imagery through it.
+
+The statement rises into the center only after the ring is legible. The central void is created by geometry, not a black circle placed over images.
+
+## Project detail
+
+The active small card unbends and expands into a large rounded landscape card.
+
+Desktop proportion:
+
+```text
+93vw × 90vh
+35% project copy | 65% media archive
 ```
 
-The black cards create a strong hierarchy between project media, contextual writing, and the interface itself.
+The left column is warm paper and editorial. The right column is a vertically moving media field. Adjacent large cards remain just beyond the side edges so horizontal dragging feels continuous.
 
-### Focus Mode
+## Motion language
 
-Image focus mode uses a nearly black environment:
+Motion is spring-based rather than duration-only easing.
 
-```css
---dark: #1a1b19;
---dark-ink: #f0f0ea;
-```
+- Position and velocity are stored separately.
+- Input transfers momentum into the ribbon or card.
+- Release can overshoot before settling.
+- Scroll velocity controls mesh deformation.
+- Geometry returns to rest through damping.
+- State transitions preserve the same texture and mesh.
 
-The dark state visually separates close viewing from archive browsing.
+DOM copy uses short upward reveals and clipping only after the related WebGL form is in place.
 
-## 3. Typography
+## Water ripple
 
-### Display Titles
+Water displacement is a full-frame WebGL post-process. A ripple begins near the pointer, propagates, and decays. It should be most visible across image boundaries and the large light card edge, then settle back to a clean frame.
 
-Large project titles use **Mea Culpa**:
+The effect remains subtle during ordinary navigation and becomes legible through movement or press; it must not look like permanent noisy glass.
 
-```css
-font-family: "Kalnia", cursive;
-```
+## Controls
 
-The script typography introduces an expressive identity to the otherwise systematic archive. It is primarily used for homepage project titles and fixed project-detail titles.
+Buttons and links use a local concave/convex response:
 
-### Interface / Body Typography
+- highlight follows the pointer position
+- the opposite edge receives an inset shadow
+- label/arrow moves by only one or two pixels
+- press reverses the light and shadow relationship
+- release springs back to neutral
 
-Interface text and project writing use **DM Sans**:
+Whole-button perspective tilt is avoided.
 
-```css
-font-family: "DM Sans", Arial, sans-serif;
-```
+## Corners and surfaces
 
-This includes navigation, card labels, descriptions, captions, metadata, project numbers, tool information, and dataset information.
+Rounded forms unify cards, media, captions, pills, and circular controls. Radii remain controlled: large cards feel architectural, while captions and links may be fully rounded.
 
-The contrast between expressive display typography and quiet sans-serif text is intentional.
+## Responsive direction
 
-## 4. Homepage Composition
+Mobile retains the Three.js idea rather than replacing it with a generic list. The camera tightens, edge cards reduce, and the detail layout stacks copy above media. Index remains available for users who prefer direct scanning.
 
-The homepage is a horizontal index rather than a conventional vertical portfolio. Each project appears as a large title arranged along a continuous horizontal track.
+## Accessibility and restraint
 
-The active project should always become the visual center of the viewport.
-
-Key behaviors:
-
-- oversized project names
-- very small project number and year
-- generous horizontal spacing
-- two image previews on hover
-- neighboring titles move outward when a title expands
-- the hovered title itself stays visually centered
-- smooth automatic calibration after scrolling
-
-The homepage should feel more like browsing an exhibition index than selecting from a card grid.
-
-## 5. Homepage Hover Language
-
-Hovering over a project title produces three related changes:
-
-1. The active title enlarges while maintaining its center position.
-2. Titles on the left move farther left and titles on the right move farther right.
-3. Two project images appear on either side of the title.
-
-The preview images are intentionally large and slightly rotated:
-
-```css
-.index-preview {
-  width: clamp(150px, 13vw, 250px);
-  border-radius: 16px;
-}
-```
-
-The images should not touch the title. A visible buffer between typography and media is important.
-
-## 6. Project Detail Composition
-
-Each project page uses a split layout.
-
-### Left Side
-
-The left side is fixed and contains:
-
-- back navigation
-- project number
-- large project title
-- year
-- project type / kicker
-- small archive instruction
-
-This content does not move while the project archive is being explored. When entering a project, these fixed elements slide from right to left with staggered timing.
-
-### Right Side
-
-The right side behaves as a vertical archive containing two parallel columns.
-
-**Text column:** Context, Study descriptions when relevant, Attempt, Interaction, Tools, Dataset, Reference, and Original Project link.
-
-**Image column:** project documentation images.
-
-The two columns move in opposing directions to make the page feel less like conventional document scrolling and more like navigating a spatial archive.
-
-## 7. Project Information Cards
-
-Information cards use:
-
-- black background
-- white text
-- rounded corners
-- generous internal space
-- small uppercase labels
-- larger descriptive copy
-
-Hover enlargement should be slow and soft rather than immediate. The card should appear to gently approach the viewer.
-
-## 8. Project Images
-
-Project archive images preserve the dimensions of the original work.
-
-The image column has a consistent width, while each image height is determined by its intrinsic aspect ratio:
-
-```css
-.gallery-card img {
-  width: 100%;
-  height: auto;
-  aspect-ratio: auto;
-  object-fit: contain;
-}
-```
-
-Do not force all documentation images into the same aspect ratio. The archive contains square p5.js canvases, landscape visualizations, maps, interface screenshots, vertical compositions, and animated GIFs.
-
-## 9. Motion Style
-
-Motion is a primary aesthetic layer of the website.
-
-Preferred motion qualities:
-
-- long easing
-- gradual acceleration
-- soft deceleration
-- overlapping transitions
-- low-amplitude scale changes
-- continuous opacity transitions
-- no sudden black frames
-- no hard page replacement
-
-Primary easing:
-
-```css
-cubic-bezier(.16, 1, .3, 1)
-```
-
-Transitions should feel physically continuous.
-
-## 10. Center Emphasis
-
-Both the homepage and project archive use **proximity-based scaling**. Objects become slightly larger as they approach the visual center of the viewport.
-
-Scaling can combine:
-
-- proximity to center
-- current scrolling velocity
-- hover emphasis
-
-These layers should remain subtle enough that the content does not visually jump.
-
-## 11. Edge Navigation
-
-The cursor also acts as a navigation device.
-
-### Homepage
-
-- pointer near left edge → slowly moves toward earlier projects
-- pointer near right edge → slowly moves toward later projects
-
-### Project Archive
-
-- pointer near top edge → slowly moves upward
-- pointer near bottom edge → slowly moves downward
-
-The movement increases gradually as the cursor approaches the edge. When the cursor returns to the central area, the interface stops drifting and automatically calibrates to the nearest meaningful item.
-
-## 12. Focus View
-
-Clicking a project image enters a dedicated dark viewing environment. The selected image becomes the dominant object, while supporting metadata remains minimal and distributed around it.
-
-Typography enters from right to left.
-
-The visual transition should imply that the image is physically leaving the archive and expanding into a new viewing state.
-
-## 13. WebGL Image Transition
-
-The image transition uses a subdivided WebGL mesh rather than a simple CSS scale.
-
-Goals:
-
-- internal image pixels deform with the image boundary
-- the image behaves like a flexible surface
-- motion follows one controlled transition progress
-- deformation settles into an undistorted final state
-- avoid random noise or high-frequency jitter
-
-The effect should resemble elastic material or a soft membrane rather than a glitch effect.
-
-## 14. Rounded Geometry
-
-Rounded corners are used consistently across homepage preview images, information cards, archive image cards, and focus images.
-
-Typical range:
-
-```css
-border-radius: 16px–22px;
-```
-
-## 15. Design Priorities
-
-When making new visual decisions, use this order of priority:
-
-1. Legibility of the seven projects
-2. Smoothness of interaction
-3. Consistency between different project media
-4. Strong editorial hierarchy
-5. Motion quality
-6. Decorative effects
-
-No decorative effect should make the project itself more difficult to inspect.
+- Every non-canvas action has a semantic control.
+- Index provides a complete low-motion path.
+- Focus rings remain visible.
+- Project links stay usable if WebGL fails.
+- Reduced motion shortens the physical transition without removing content.
+- Effects never obscure the project title, caption, or primary action at rest.

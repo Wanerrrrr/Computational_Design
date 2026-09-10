@@ -3,107 +3,121 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Seven digital objects from Computational Design Workshop, Summer 2026." />
-  <title>Seven Structures — Waner Li</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Beau+Rivage&family=Birthstone&family=Kalnia:wght@100..700&family=Ranchers&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css" />
+  <meta name="description" content="Waner Li's MSCDP project archive — computational design, mapping systems, and interactive experiments." />
+  <meta name="theme-color" content="#050505" />
+  <title>Waner Li — MSCDP Project Archive</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/style.css?v=62" />
 </head>
-<body>
-  <!-- Focus morph is deterministic CSS/WAAPI geometry; no turbulence shader. -->
+<body class="is-loading" data-view="work">
+  <div class="loading-screen" id="loadingScreen" aria-live="polite">
+    <p>MSCDP · Project Archive</p>
+    <strong id="loadingCount">000</strong>
+  </div>
 
-  <div id="app">
-    <header class="site-header">
-      <button class="symbol-button" id="homeButton" aria-label="Return to index">✦</button>
-      <nav class="mini-nav" aria-label="Primary navigation">
-        <button class="nav-link is-active" id="indexButton">Index</button>
-        <span>·</span>
-        <button class="nav-link" id="aboutButton">About</button>
+  <div class="detail-paper" id="detailPaper" aria-hidden="true"></div>
+  <canvas class="webgl-stage" id="webglCanvas" aria-label="Interactive three-dimensional project gallery"></canvas>
+  <p class="webgl-fallback" id="webglFallback" hidden>Your browser cannot display the interactive gallery. Use the Index to browse all projects.</p>
+
+  <div class="interface" id="interface">
+    <header class="site-header" id="siteHeader">
+      <button class="brand depth-button" id="homeButton" type="button" aria-label="Return to work">
+        <span>WL</span><i aria-hidden="true"></i>
+      </button>
+      <nav class="site-nav" aria-label="Primary navigation">
+        <button class="nav-link depth-button is-active" id="workButton" type="button">Work</button>
+        <button class="nav-link depth-button" id="infoButton" type="button">Info</button>
+        <button class="nav-link depth-button" id="indexButton" type="button">Index</button>
       </nav>
-      <div class="course-mark">CDW · 2026</div>
+      <p class="site-edition">MSCDP · 2026</p>
     </header>
 
     <main>
-      <!-- HOME / HORIZONTAL INDEX -->
-      <section class="index-view" id="indexView" aria-label="Project index">
-        <div class="index-track" id="indexTrack"></div>
-        <div class="index-hint" aria-hidden="true"><span>+</span><small>scroll</small></div>
-        <div class="index-footer">
-          <span>Waner Li</span>
-          <span>Seven Digital Objects</span>
-          <span>Computational Design Workflows</span>
+      <section class="work-ui" id="workUI" aria-label="Selected projects">
+        <div class="work-heading">
+          <span>Selected work</span>
+          <span>New York · 2026</span>
         </div>
-      </section>
 
-      <!-- PROJECT DETAIL: fixed title on the left; independent scrolling archive on the right. -->
-      <section class="project-view" id="projectView" aria-live="polite" aria-hidden="true">
-        <aside class="project-fixed">
-          <button class="back-link" id="backButton">← Index</button>
-          <div class="project-title-wrap">
-            <span class="project-number" id="projectNumber">01</span>
-            <h1 class="project-title" id="projectTitle">Spatial 2D</h1>
-            <span class="project-year">2026</span>
-          </div>
-          <div class="project-fixed-footer">
-            <p class="project-kicker" id="projectKicker">2D Spatial Canvas</p>
-            <span>Scroll archive ↓</span>
-          </div>
+        <aside class="active-copy" id="activeCopy" aria-live="polite">
+          <p id="activeCourse"></p>
+          <h1 id="activeTitle"></h1>
+          <p id="activeSummary"></p>
+          <button class="inline-action depth-button" id="viewProjectButton" type="button">Preview project <span>↗</span></button>
         </aside>
 
-        <div class="project-scroll" id="projectScroll">
-          <div class="project-columns">
-            <!-- User asked for the first image column to become project-information boxes. -->
-            <div class="info-column" id="projectInfoColumn"></div>
-            <div class="image-column" id="projectGallery" aria-label="Project image gallery"></div>
+        <div class="work-controls">
+          <div class="course-filters" id="courseFilters" aria-label="Filter projects by course"></div>
+          <p class="project-count"><span id="activeNumber">01</span><i></i><span id="projectTotal">11</span></p>
+          <p class="gesture-hint"><span>↔</span> Drag · scroll</p>
+        </div>
+
+        <div class="accessible-projects" id="accessibleProjects" aria-label="Project shortcuts"></div>
+      </section>
+
+      <section class="info-ui" id="infoUI" aria-hidden="true">
+        <div class="info-center">
+          <p class="eyebrow">MSCDP · Project Archive</p>
+          <h2>Designing with systems,<br />data, and interaction.</h2>
+          <p>Eleven projects across Computational Design Workflows and Mapping Systems, held together as one evolving practice.</p>
+          <div class="info-links">
+            <button class="inline-action depth-button" id="infoWorkButton" type="button">Explore work <span>↗</span></button>
+            <button class="inline-action depth-button" id="infoIndexButton" type="button">Open index <span>↗</span></button>
           </div>
         </div>
       </section>
 
-      <!-- ABOUT -->
-      <section class="about-view" id="aboutView" aria-hidden="true">
-        <button class="about-close" id="aboutClose" aria-label="Close about panel">×</button>
-        <div class="about-grid">
+      <section class="ring-preview-ui" id="ringUI" aria-hidden="true">
+        <div class="ring-preview-center">
+          <p class="ring-preview-overline" id="ringOverline"></p>
+          <h2 class="ring-preview-title" id="ringTitle"></h2>
+          <p class="ring-preview-summary" id="ringSummary"></p>
+          <p class="ring-preview-meta" id="ringMeta"></p>
+          <button class="ring-preview-action depth-button" id="ringViewProjectButton" type="button">
+            <span>View project</span><i aria-hidden="true">↗</i>
+          </button>
+        </div>
+        <p class="ring-close-hint" id="ringCloseHint">Click outside to close</p>
+      </section>
+
+      <section class="detail-ui" id="detailUI" aria-hidden="true">
+        <aside class="detail-copy" id="detailCopy">
           <div>
-            <p class="eyebrow">Final Course Archive</p>
-            <h2>Seven Structures</h2>
+            <p class="detail-overline" id="detailOverline"></p>
+            <h2 class="detail-title" id="detailTitle"></h2>
+            <p class="detail-summary" id="detailSummary"></p>
           </div>
-          <div class="about-copy">
-            <p>This website brings seven course exercises into one editorial archive: a 2D spatial canvas, 3D spatial canvas, temporal structure, relational structure, geospatial structure, engagement component, and agent.</p>
-            
+          <div class="detail-notes" id="detailNotes"></div>
+          <div class="detail-links" id="detailLinks"></div>
+        </aside>
+
+        <div class="detail-media-hit" id="detailMediaHit" tabindex="0" aria-label="Scroll project media">
+          <div class="detail-caption" aria-live="polite">
+            <span id="detailCaption"></span>
+            <span id="detailImageCount"></span>
           </div>
+          <div class="detail-scroll-track" aria-hidden="true"><i id="detailScrollThumb"></i></div>
         </div>
+
+        <button class="circle-button depth-button detail-close" id="detailClose" type="button" aria-label="Close project">×</button>
+        <button class="project-switch project-switch--previous depth-button" id="previousProject" type="button" aria-label="Previous project"><span>←</span><small>Previous</small></button>
+        <button class="project-switch project-switch--next depth-button" id="nextProject" type="button" aria-label="Next project"><small>Next</small><span>→</span></button>
       </section>
 
-      <!-- DARK IMAGE FOCUS MODE -->
-      <section class="focus-view" id="focusView" aria-hidden="true">
-        <button class="focus-close focus-copy-item" id="focusClose" aria-label="Close image">×</button>
-        <div class="focus-left">
-          <div class="focus-project focus-copy-item" id="focusProject"></div>
-          <div class="focus-index focus-copy-item" id="focusIndex"></div>
-          <div class="focus-medium focus-copy-item" id="focusMedium"></div>
-        </div>
-        <figure class="focus-figure" id="focusFigure">
-          <div class="focus-image-shell" id="focusImageShell">
-            <img id="focusImage" src="" alt="" />
-          </div>
-        </figure>
-        <div class="focus-side focus-copy-item" id="focusSide"></div>
-        <div class="focus-caption focus-copy-item" id="focusCaption"></div>
-        <div class="focus-spinner focus-copy-item" aria-hidden="true">○</div>
-        <img class="focus-morph" id="focusMorph" alt="" aria-hidden="true" />
+      <section class="index-overlay" id="indexOverlay" aria-hidden="true">
+        <button class="circle-button depth-button index-close" id="indexClose" type="button" aria-label="Close index">×</button>
+        <header class="index-heading">
+          <p class="eyebrow">All work</p>
+          <h2>Project<br />Index</h2>
+        </header>
+        <div class="index-list" id="indexList"></div>
       </section>
-
-      <div class="zoom-flash" id="zoomFlash" aria-hidden="true"></div>
     </main>
-
-    <!-- Full-screen transparent WebGL layer used only while an image moves between
-         the project archive and dark focus view. -->
-    <canvas class="focus-webgl" id="focusWebGL" aria-hidden="true"></canvas>
   </div>
 
-  <script src="js/projects.js"></script>
-  <script src="js/webgl-focus.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/projects.js?v=45"></script>
+    <script type="module" src="js/app.js?v=87"></script>
 </body>
 </html>

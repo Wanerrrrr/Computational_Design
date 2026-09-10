@@ -1,335 +1,105 @@
-# PROJECT_IDEAS.md
+# MSCDP Archive Direction
 
-## Final Archive Concept
+## Positioning
 
-### Working Title
-**Seven Structures**
+This site is no longer a final page for one Computational Design Workflows course. It is Waner Li’s evolving MSCDP archive: one place where code studies, data visualization, mapping research, civic interfaces, and conversational systems can be read as a connected practice.
 
-Alternative titles:
+The current archive contains eleven projects:
 
-- **Computational Objects**
-- **Seven Digital Studies**
-- **Structures / Systems / Interfaces**
-- **CDW Archive 2026**
+### Computational Design Workflows
 
-The project is an interactive archive of seven exercises developed throughout Computational Design Workshop.
+1. Spatial 2D
+2. Spatial 3D
+3. Temporal
+4. Relational
+5. Geospatial
+6. Engagement
+7. Agent
 
-Rather than presenting them as isolated homework assignments, the archive frames them as seven different ways of organizing digital experience:
+### Mapping Systems
+
+8. NYC Cooling Equity
+9. Walking Central Park
+10. The Geography of a Website
+11. NYC Open Streets
+
+## Recommended hierarchy
+
+The overall hierarchy should change, but remain shallow:
 
 ```text
-space
-space in 3D
-time
-relationships
-geography
-participation
-agency
+Work
+├── All
+├── CDW
+└── Mapping
+
+Info
+└── One statement about the combined MSCDP practice
+
+Index
+├── Computational Design Workflows
+└── Mapping Systems
 ```
 
-## 1. Spatial 2D
+This is stronger than putting every course in the main navigation. The first impression is the body of work; the course taxonomy remains available as a filter and as grouped context.
 
-### Theme
-**Perception as Space**
+## Narrative across the projects
 
-Spatial 2D contains two small studies rather than one single final composition.
+The projects form three overlapping threads.
 
-### Study 01 — Visual Illusion
-
-Explore how repetition, contrast, scale, spacing, and pattern density can make a flat composition appear to vibrate, expand, contract, recede, or move.
-
-The project does not construct literal three-dimensional space. Instead, it uses the viewer's perception as the mechanism that creates depth.
-
-### Study 02 — Animated Perceptual Field
-
-Introduce temporal change into a repeated geometric system. Animation can alter scale, rhythm, visual density, position, and contrast.
-
-The resulting image becomes a changing perceptual field rather than a static composition.
-
-### Tools
-
-- p5.js
-- JavaScript
-- HTML/CSS
-
-### Archive Media
-
-Use animated GIFs where motion is central to understanding the study.
-
-## 2. Spatial 3D
-
-### Theme
-**Geometry vs. Material**
-
-Spatial 3D also contains two related studies.
-
-### Study 01 — Geometric Composition
-
-Construct a three-dimensional composition from simple volumes. Focus on axis, orientation, overlap, proportion, camera, and perspective.
-
-The viewer understands the object differently from each angle.
-
-### Study 02 — Material + Light
-
-Keep the underlying geometry while changing its perceptual quality through transparency, frosted-glass materials, reflection, lighting, atmosphere, and fog.
-
-The study asks how much of spatial experience comes from geometry and how much comes from material and light.
-
-### Tools
-
-- Three.js
-- WebGL
-- OrbitControls
-- JavaScript
-
-## 3. Temporal Structure
-
-### Theme
-**Cinema as Time + Data**
-
-Use a movie dataset to organize films across time.
-
-The visualization can combine release year, box-office performance, film identity, bubble size, and timeline placement.
-
-The structure emphasizes that temporal visualization is not only about plotting dates. It is also about revealing change, clustering, growth, and comparison.
-
-### Interaction Ideas
-
-- hover for film details
-- animated bubble entrance
-- filtering
-- timeline exploration
-
-### Tools
-
-- D3.js
-- JavaScript
-- CSV
-
-## 4. Relational Structure
-
-### Theme
-**Character Relationships as a Network**
-
-Represent characters from *Coco* as nodes in a relational system. Relationships become edges between characters.
-
-This shifts attention away from chronology and toward connection.
-
-Questions include:
-
-- Which characters occupy central positions?
-- Which relationships form clusters?
-- How does a network change our understanding of a narrative?
-- How does visual styling affect network readability?
-
-### Interaction
-
-- draggable nodes
-- force simulation
-- persistent links
-- hover states
-
-### Visual Direction
-
-Use a visual language inspired by the film rather than generic circles.
-
-### Tools
-
-- D3.js
-- force simulation
-- CSV / JSON
-- JavaScript
-
-## 5. Geospatial Structure
-
-### Theme
-**Heat Vulnerability as Spatial Inequality**
-
-Create a Mapbox interface examining heat vulnerability across New York City.
-
-The project combines vulnerability values with geographic boundaries so users can inspect both citywide patterns and specific ZIP Code areas.
-
-### Dataset 01 — Heat Vulnerability
-
-NYC Heat Vulnerability Index.
-
-Used to represent differences in heat vulnerability across areas.
-
-### Dataset 02 — ZIP Code Geography
-
-NYC ZIP Code / ZCTA boundaries.
-
-Used to draw geographic polygons, connect HVI values to spatial areas, and support ZIP Code search.
-
-### Interaction
-
-- pan
-- zoom
-- ZIP Code search
-- animated map navigation
-- hover / selected states
-- neighborhood-scale context
-
-### Design Question
-
-How do classification, color, labels, scale, and search tools shape how environmental vulnerability is interpreted?
-
-### Tools
-
-- Mapbox GL JS
-- GeoJSON
-- JavaScript
-
-## 6. Engagement Component
-
-### Theme
-**Participation as Data**
-
-The engagement component changes the user from viewer into contributor.
-
-A Firebase-connected poll asks users about neighborhood Open Streets.
-
-Possible questions include:
-
-- Would you want blocks in your neighborhood converted to Open Streets?
-- When should an Open Street operate?
-- What should it prioritize?
-
-Possible priorities include play, gathering, walking, cycling, markets, outdoor dining, and community programming.
-
-### Concept
-
-The object explores how a web interface can collect public preferences and turn participation into structured data.
-
-### Tools
-
-- Firebase
-- JavaScript
-- HTML/CSS
-
-### Archive Documentation
-
-Show the initial question, response interface, aggregated result state, and Firebase-backed interaction.
-
-## 7. Agent
-
-### Theme
-**Interface as Conversation**
-
-The final object introduces an AI agent into the website.
-
-Instead of clicking predefined controls, the user communicates through natural language.
-
-The agent can be framed as a guide, assistant, conversational interface, or project-specific information layer.
-
-The important question is not simply whether a chatbot works, but what role conversational interaction plays inside a designed system.
-
-### Possible Archive Questions
-
-- What can the agent help users understand?
-- What information is stored in Firebase?
-- How does conversational interaction differ from direct manipulation?
-- When is an agent useful and when is it unnecessary?
-
-### Tools
-
-- OpenAI API
-- JavaScript
-- Firebase
-- HTML/CSS
-
-## 8. Relationship Between the Seven Objects
-
-The final archive can frame the seven assignments as an expanding sequence:
+### Computational representation
 
 ```text
-01  Spatial 2D
-    pixels and perception
-
-02  Spatial 3D
-    geometry and material
-
-03  Temporal
-    change through time
-
-04  Relational
-    connections between entities
-
-05  Geospatial
-    data situated in territory
-
-06  Engagement
-    users contribute to the system
-
-07  Agent
-    the system responds conversationally
+Spatial 2D → Spatial 3D → Temporal → Relational → Geospatial
 ```
 
-The progression moves from **representation** toward **interaction and agency**.
+This thread moves from perception and form toward time, networks, and territory.
 
-This gives the final website a conceptual structure beyond chronological assignment order.
+### Participation and agency
 
-## 9. Website as an Eighth Design Object
+```text
+Engagement → Agent
+```
 
-The archive itself should be considered a computational design exercise.
+These projects move the visitor from observer to contributor and conversational participant.
 
-Its interaction system combines:
+### Spatial evidence and access
 
-- inertial scrolling
-- automatic calibration
-- cursor-position navigation
-- proximity scaling
-- counter-moving columns
-- dynamic image ratios
-- page transitions
-- WebGL deformation
+```text
+NYC Cooling Equity → Walking Central Park → Geography of a Website → NYC Open Streets
+```
 
-The site therefore does not simply display previous computational work. It applies computational behavior to the act of documenting and navigating that work.
+These works use mapping to examine environmental risk, pedestrian networks, digital infrastructure, and public-space access. They also make the limits of each spatial claim visible.
 
-## 10. Documentation Strategy
+## The archive as a project
 
-Each project page should answer the same basic questions.
+The website is itself a computational design experiment. One Three.js image system connects all content states:
 
-### Context
-What was the exercise investigating?
+```text
+small loading stack
+→ inertial image ribbon
+→ Info black-hole ring
+→ expanded project card
+→ continuous neighboring cards
+```
 
-### Attempt
-What did I try to create or test?
+This hierarchy and interaction model make different assignments feel like parts of one practice without erasing their course context.
 
-### Study 01 / Study 02
-Use these when an assignment contains multiple experiments.
+## Documentation standard
 
-### Interaction
-What can the viewer do, or how does the work change?
+Every new project should provide:
 
-### Tools
-What technologies were used?
+- a concise title and optional full title
+- course and year
+- a one-sentence archive summary
+- a project statement
+- method, tools, dataset, interaction, reading, and limitations as relevant
+- at least one strong cover image or looping video
+- captions for every media item
+- a live link, local experience, source, or submission link when available
 
-### Dataset
-What information was used, when applicable?
+The first media item is especially important because it becomes the project’s texture in the shared ribbon.
 
-### Reference
-What visual, artistic, cartographic, or interaction precedents informed the work?
+## Future growth
 
-### Original Project
-Where can the full interactive assignment be opened?
-
-This shared structure keeps seven very different projects legible inside one archive.
-
-## 11. Final Polish Ideas
-
-Before submission:
-
-- replace temporary images with final screenshots / optimized GIFs
-- verify all seven original project URLs
-- verify external dataset links
-- make image captions specific rather than generic
-- keep title capitalization consistent
-- check spelling of “Spatial”
-- confirm GIF sizes are appropriate for GitHub Pages
-- test Chrome and Safari
-- test GitHub Pages after deployment
-- test navigation with both mouse and trackpad
-- confirm no project card borders are clipped while scaling
-- confirm page transitions contain no blank or black pause frames
-
-The final goal is a website that feels intentional before the user has even opened the first assignment.
+As the archive expands, keep `Work / Info / Index` stable. Add new course filters only after a course has enough projects to be meaningful. If the project count becomes too high for a single ring, introduce thematic filters inside Work before adding deeper navigation.

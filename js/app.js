@@ -1,1067 +1,890 @@
-(() => {
-  const projects = window.PROJECTS || [];
-  const $ = (id) => document.getElementById(id);
+let Gallery3D = null;
+let galleryModuleError = null;
 
-  const indexView = $('indexView');
-  const indexTrack = $('indexTrack');
-  const projectView = $('projectView');
-  const projectScroll = $('projectScroll');
-  const projectInfoColumn = $('projectInfoColumn');
-  const projectGallery = $('projectGallery');
-  const aboutView = $('aboutView');
-  const focusView = $('focusView');
+const galleryModulePromise = import("./scene.js?v=85")
+  .then((module) => { Gallery3D = module.default; })
+  .catch((error) => {
+    galleryModuleError = error;
+    document.documentElement.dataset.galleryError = error?.message || "Three.js module failed to load";
+  });
 
-  const indexButton = $('indexButton');
-  const aboutButton = $('aboutButton');
-  const homeButton = $('homeButton');
-  const backButton = $('backButton');
-  const aboutClose = $('aboutClose');
-  const focusClose = $('focusClose');
+const $ = (id) => document.getElementById(id);
+const pad = (value) => String(value).padStart(2, "0");
+const wait = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration));
+const waitForTransition = async (result, minimum, maximum = 1800) => {
+  if (!result || typeof result.then !== "function") {
+    await wait(minimum);
+    return;
+  }
+  await Promise.all([
+    wait(minimum),
+    Promise.race([result.catch(() => undefined), wait(maximum)])
+  ]);
+};
 
-  const projectNumber = $('projectNumber');
-  const projectTitle = $('projectTitle');
-  const projectKicker = $('projectKicker');
-  const focusProject = $('focusProject');
-  const focusIndex = $('focusIndex');
-  const focusMedium = $('focusMedium');
-  const focusSide = $('focusSide');
-  const focusCaption = $('focusCaption');
-  const focusImage = $('focusImage');
-  const focusImageShell = $('focusImageShell');
-  const focusMorph = $('focusMorph');
-  const focusWebGL = $('focusWebGL');
-  const zoomFlash = $('zoomFlash');
-  const webglFocus = (focusWebGL && window.WebGLFocusTransition)
-    ? new window.WebGLFocusTransition(focusWebGL)
-    : null;
+const sourceProjects = Array.isArray(window.PROJECTS) ? window.PROJECTS : [];
+const allProjects = sourceProjects.filter((project) => project.id !== "places-i-enjoy");
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  let activeProject = null;
-  let activeImageIndex = 0;
-  let transitionBusy = false;
-  let autoScrollFrame = null;
-  let autoScrollToken = 0;
+const elements = {
+  canvas: $("webglCanvas"),
+  fallback: $("webglFallback"),
+  loading: $("loadingScreen"),
+  loadingCount: $("loadingCount"),
+  home: $("homeButton"),
+  work: $("workButton"),
+  info: $("infoButton"),
+  index: $("indexButton"),
+  workUI: $("workUI"),
+  infoUI: $("infoUI"),
+  ringUI: $("ringUI"),
+  ringOverline: $("ringOverline"),
+  ringTitle: $("ringTitle"),
+  ringSummary: $("ringSummary"),
+  ringMeta: $("ringMeta"),
+  ringViewProject: $("ringViewProjectButton"),
+  detailUI: $("detailUI"),
+  activeCopy: $("activeCopy"),
+  activeCourse: $("activeCourse"),
+  activeTitle: $("activeTitle"),
+  activeSummary: $("activeSummary"),
+  viewProject: $("viewProjectButton"),
+  filters: $("courseFilters"),
+  activeNumber: $("activeNumber"),
+  projectTotal: $("projectTotal"),
+  accessibleProjects: $("accessibleProjects"),
+  infoWork: $("infoWorkButton"),
+  infoIndex: $("infoIndexButton"),
+  detailCopy: $("detailCopy"),
+  detailOverline: $("detailOverline"),
+  detailTitle: $("detailTitle"),
+  detailSummary: $("detailSummary"),
+  detailNotes: $("detailNotes"),
+  detailLinks: $("detailLinks"),
+  detailMediaHit: $("detailMediaHit"),
+  detailCaption: $("detailCaption"),
+  detailImageCount: $("detailImageCount"),
+  detailScrollThumb: $("detailScrollThumb"),
+  detailClose: $("detailClose"),
+  previous: $("previousProject"),
+  next: $("nextProject"),
+  indexOverlay: $("indexOverlay"),
+  indexClose: $("indexClose"),
+  indexList: $("indexList")
+};
 
-  // ---------------------------------------------------------------------------
-  // HOME: horizontal inertial index + center snapping + fixed-position hover growth
-  // ---------------------------------------------------------------------------
-  let targetX = 0;
-  let currentX = 0;
-  let minIndexX = 0;
-  let maxIndexX = 0;
-  let indexReady = false;
-  let indexSnapTimer = null;
-  let dragging = false;
-  let dragMoved = false;
-  let dragStart = 0;
-  let dragOrigin = 0;
-  let indexMotionEnergy = 0;
-  let previousIndexX = 0;
+const filterDefinitions = [
+  ["all", "All"],
+  ["cdw", "CDW"],
+  ["mapping", "Mapping"]
+];
 
-  // Pointer-edge autopan. The pointer can gently "pull" the active view
-  // without replacing wheel/drag input. Releasing the edge lets snapping resume.
-  let pointerX = window.innerWidth / 2;
-  let pointerY = window.innerHeight / 2;
-  let pointerInside = false;
-  let edgeIndexActive = false;
-  let edgeArchiveActive = false;
+let gallery = null;
+let activeFilter = "all";
+let visibleProjects = [...allProjects];
+let currentProject = visibleProjects[0] || null;
+let currentIndex = 0;
+let transitionToken = 0;
+let loadingFrame = 0;
+let loadingStart = performance.now();
+let routeFromHistory = false;
+let detailPointer = null;
+let detailSwitchInFlight = false;
+let detailMotionFrame = 0;
 
-  function renderIndex() {
-    indexTrack.innerHTML = '';
+function setView(view) {
+  document.body.dataset.view = view;
+  const workVisible = view === "work";
+  const ringVisible = view === "ring";
+  const detailVisible = view === "detail" || view === "detail-exit";
+
+  elements.workUI.setAttribute("aria-hidden", String(!workVisible));
+  elements.infoUI.setAttribute("aria-hidden", String(view !== "info"));
+  elements.ringUI.setAttribute("aria-hidden", String(!ringVisible));
+  elements.detailUI.setAttribute("aria-hidden", String(!detailVisible));
+  elements.indexOverlay.setAttribute("aria-hidden", String(view !== "index"));
+
+  elements.work.classList.toggle("is-active", view === "work");
+  elements.info.classList.toggle("is-active", view === "info");
+  elements.index.classList.toggle("is-active", view === "index");
+}
+
+function setRoute(route, { replace = false } = {}) {
+  if (routeFromHistory) return;
+  const next = route ? `#${route}` : `${location.pathname}${location.search}`;
+  if ((route && location.hash === next) || (!route && !location.hash)) return;
+  history[replace ? "replaceState" : "pushState"]({}, "", next);
+}
+
+function renderFilters() {
+  elements.filters.replaceChildren();
+  filterDefinitions.forEach(([value, label]) => {
+    const count = value === "all"
+      ? allProjects.length
+      : allProjects.filter((project) => project.course === value).length;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "filter-button depth-button";
+    button.classList.toggle("is-active", value === activeFilter);
+    button.dataset.filter = value;
+    button.setAttribute("aria-pressed", String(value === activeFilter));
+    button.innerHTML = `${label}<span>${pad(count)}</span>`;
+    button.addEventListener("click", () => applyFilter(value));
+    elements.filters.appendChild(button);
+    attachDepthEffect(button);
+  });
+}
+
+function renderAccessibleProjects() {
+  elements.accessibleProjects.replaceChildren();
+  visibleProjects.forEach((project) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = project.title;
+    button.addEventListener("click", () => openRing(project.id));
+    elements.accessibleProjects.appendChild(button);
+  });
+}
+
+function applyFilter(filter, preferredId = null) {
+  activeFilter = filterDefinitions.some(([value]) => value === filter) ? filter : "all";
+  visibleProjects = activeFilter === "all"
+    ? [...allProjects]
+    : allProjects.filter((project) => project.course === activeFilter);
+
+  if (!visibleProjects.length) visibleProjects = [...allProjects];
+  const preferred = visibleProjects.find((project) => project.id === preferredId) || visibleProjects[0];
+  currentProject = preferred;
+  currentIndex = Math.max(0, visibleProjects.indexOf(preferred));
+
+  renderFilters();
+  renderAccessibleProjects();
+  updateActiveCopy(preferred, currentIndex, visibleProjects.length, true);
+  gallery?.setProjects(visibleProjects, preferred?.id);
+}
+
+function updateActiveCopy(project, index = 0, total = visibleProjects.length, immediate = false) {
+  if (!project) return;
+  const changed = currentProject?.id !== project.id;
+  currentProject = project;
+  currentIndex = Number.isFinite(index)
+    ? Math.max(0, Math.min(visibleProjects.length - 1, index))
+    : Math.max(0, visibleProjects.findIndex((item) => item.id === project.id));
+
+  const render = () => {
+    elements.activeCourse.textContent = `${project.number} · ${project.courseName}`;
+    elements.activeTitle.textContent = project.title;
+    elements.activeSummary.textContent = project.summary;
+    elements.activeNumber.textContent = pad(currentIndex + 1);
+    elements.projectTotal.textContent = pad(total || visibleProjects.length);
+    elements.viewProject.setAttribute("aria-label", `Preview ${project.title}`);
+  };
+
+  render();
+  if (!immediate && changed && !reducedMotion) {
+    elements.activeCopy.getAnimations().forEach((animation) => animation.cancel());
+    elements.activeCopy.animate([
+      { clipPath: "inset(100% 0 0 0)", transform: "translateY(18px)" },
+      { clipPath: "inset(0 0 0 0)", transform: "translateY(0)" }
+    ], { duration: 560, easing: "cubic-bezier(.16,1,.3,1)" });
+  }
+}
+
+function renderRing(project) {
+  if (!project) return;
+  elements.ringOverline.textContent = `${project.number} / ${pad(visibleProjects.length)} · ${project.courseName}`;
+  elements.ringTitle.textContent = project.fullTitle || project.title;
+  elements.ringTitle.dataset.projectId = project.id;
+  elements.ringSummary.textContent = project.summary;
+  elements.ringMeta.textContent = `${project.kicker} · ${project.year}`;
+  elements.ringViewProject.setAttribute("aria-label", `View ${project.fullTitle || project.title}`);
+}
+
+function normalizeActiveChange(projectOrIndex, maybeIndex, maybeTotal) {
+  let project = projectOrIndex;
+  let index = maybeIndex;
+  let total = maybeTotal;
+
+  if (typeof projectOrIndex === "number") {
+    index = projectOrIndex;
+    project = visibleProjects[index];
+  } else if (typeof projectOrIndex === "string") {
+    project = visibleProjects.find((item) => item.id === projectOrIndex);
+  } else if (projectOrIndex?.project) {
+    project = projectOrIndex.project;
+    index = projectOrIndex.index;
+    total = projectOrIndex.total;
+  }
+
+  if (!project) return;
+  // The ribbon's dormant position can still report an active card while a
+  // detail transition is running. It must never overwrite the project owned
+  // by the centred detail card, otherwise Previous/Next starts from the wrong
+  // item even though the visible copy is correct.
+  if (["detail", "detail-transition", "detail-exit"].includes(document.body.dataset.view)) return;
+  if (!Number.isFinite(index)) index = visibleProjects.findIndex((item) => item.id === project.id);
+  updateActiveCopy(project, index, total || visibleProjects.length);
+  if (document.body.dataset.view === "ring") renderRing(project);
+}
+
+function handleRingChange(project, index, total = visibleProjects.length) {
+  if (!project) return;
+  const wasRing = document.body.dataset.view === "ring";
+  updateActiveCopy(project, index, total, !wasRing);
+  setView("ring");
+  renderRing(project);
+  setRoute(`preview/${project.id}`, { replace: wasRing });
+}
+
+function handleEngineRingClose() {
+  setView("work");
+  setRoute("", { replace: true });
+}
+
+function renderIndex() {
+  elements.indexList.replaceChildren();
+  const groups = [
+    ["Computational Design Workflows", allProjects.filter((project) => project.course === "cdw")],
+    ["Mapping Systems", allProjects.filter((project) => project.course === "mapping")]
+  ];
+
+  groups.forEach(([label, projects]) => {
+    const section = document.createElement("section");
+    section.className = "index-group";
+    const heading = document.createElement("p");
+    heading.className = "index-group__heading";
+    heading.innerHTML = `<span>${label}</span><span>${pad(projects.length)}</span>`;
+    section.appendChild(heading);
+
     projects.forEach((project) => {
-      const item = document.createElement('button');
-      item.className = 'index-item';
-      item.type = 'button';
-      item.dataset.project = project.id;
-      item.setAttribute('aria-label', `Open ${project.title}`);
-      const left = project.images?.[0]?.[0] || '';
-      const right = project.images?.[1]?.[0] || left;
-      item.innerHTML = `
-        <img class="index-preview left" src="${left}" alt="" aria-hidden="true">
-        <span class="index-item-number">${project.number}</span>
-        <span class="index-item-title">${project.title}</span>
-        <span class="index-item-year">${project.year}</span>
-        <img class="index-preview right" src="${right}" alt="" aria-hidden="true">
-        <span class="index-item-action">view project ↗</span>
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "index-row depth-button";
+      row.innerHTML = `
+        <span class="index-row__number">${project.number}</span>
+        <span class="index-row__title">${project.fullTitle || project.title}</span>
+        <span class="index-row__meta">${project.kicker}</span>
+        <span class="index-row__arrow">↗</span>
       `;
-
-      item.addEventListener('pointerenter', () => {
-        if (dragging || window.innerWidth <= 850) return;
-        setIndexHover(item);
+      row.addEventListener("click", () => {
+        if (!visibleProjects.some((item) => item.id === project.id)) applyFilter("all", project.id);
+        openRing(project.id);
       });
-      item.addEventListener('pointerleave', () => {
-        if (item.classList.contains('is-hovered')) clearIndexHover();
-      });
-      item.addEventListener('focus', () => setIndexHover(item));
-      item.addEventListener('blur', clearIndexHover);
-      item.addEventListener('click', (e) => {
-        if (dragMoved || transitionBusy) { e.preventDefault(); return; }
-        openProject(project.id);
-      });
-      indexTrack.appendChild(item);
+      section.appendChild(row);
+      attachDepthEffect(row);
     });
-    requestAnimationFrame(() => {
-      measureIndex();
-      const first = indexTrack.querySelector('.index-item');
-      if (first && !indexReady) {
-        centerIndexItem(first, true);
-        indexReady = true;
-      } else {
-        scheduleIndexSnap(40);
-      }
-    });
-  }
 
-  function setIndexHover(item) {
-    clearIndexHover();
-    const items = [...indexTrack.querySelectorAll('.index-item')];
-    const activeIndex = items.indexOf(item);
-    indexTrack.classList.add('has-hover');
-    item.classList.add('is-hovered');
-    items.forEach((el, i) => {
-      if (i < activeIndex) el.classList.add('is-left-of-hover');
-      if (i > activeIndex) el.classList.add('is-right-of-hover');
-    });
-  }
-
-  function clearIndexHover() {
-    indexTrack.querySelectorAll('.index-item').forEach((el) => {
-      el.classList.remove('is-hovered','is-left-of-hover','is-right-of-hover');
-    });
-    indexTrack.classList.remove('has-hover');
-  }
-
-  function measureIndex() {
-    if (window.innerWidth <= 850) return;
-    const items = [...indexTrack.querySelectorAll('.index-item')];
-    if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    const firstCenter = first.offsetLeft + first.offsetWidth / 2;
-    const lastCenter = last.offsetLeft + last.offsetWidth / 2;
-    maxIndexX = window.innerWidth / 2 - firstCenter;
-    minIndexX = window.innerWidth / 2 - lastCenter;
-    targetX = clamp(targetX, minIndexX, maxIndexX);
-    currentX = clamp(currentX, minIndexX, maxIndexX);
-  }
-
-  function centerIndexItem(item, immediate = false) {
-    if (!item || window.innerWidth <= 850) return;
-    const center = item.offsetLeft + item.offsetWidth / 2;
-    const desired = clamp(window.innerWidth / 2 - center, minIndexX, maxIndexX);
-    targetX = desired;
-    if (immediate) currentX = desired;
-  }
-
-  function snapIndexToNearest() {
-    if (window.innerWidth <= 850 || dragging || edgeIndexActive || transitionBusy || indexView.classList.contains('is-hidden')) return;
-    const items = [...indexTrack.querySelectorAll('.index-item')];
-    if (!items.length) return;
-    const screenCenter = window.innerWidth / 2;
-    let nearest = items[0];
-    let best = Infinity;
-    items.forEach((item) => {
-      const rect = item.getBoundingClientRect();
-      const distance = Math.abs((rect.left + rect.width / 2) - screenCenter);
-      if (distance < best) { best = distance; nearest = item; }
-    });
-    centerIndexItem(nearest);
-  }
-
-  function scheduleIndexSnap(delay = 180) {
-    clearTimeout(indexSnapTimer);
-    indexSnapTimer = setTimeout(snapIndexToNearest, delay);
-  }
-
-  function animateIndex() {
-    previousIndexX = currentX;
-    currentX += (targetX - currentX) * .105;
-    if (Math.abs(targetX - currentX) < .02) currentX = targetX;
-
-    const dx = currentX - previousIndexX;
-    if (Math.abs(dx) > .02) indexMotionEnergy = Math.min(1, indexMotionEnergy + Math.abs(dx) / 18);
-    indexMotionEnergy *= .91;
-
-    if (window.innerWidth > 850) {
-      indexTrack.style.transform = `translate3d(${currentX}px,0,0)`;
-      updateIndexScale(indexMotionEnergy);
-    }
-    requestAnimationFrame(animateIndex);
-  }
-
-  function updateIndexScale(motionEnergy = 0) {
-    const items = [...indexTrack.querySelectorAll('.index-item')];
-    const center = window.innerWidth * .5;
-    const influence = Math.max(430, window.innerWidth * .46);
-    const movingBoost = motionEnergy * .065;
-    items.forEach((item) => {
-      const itemCenter = item.offsetLeft + item.offsetWidth * .5 + currentX;
-      const closeness = 1 - clamp(Math.abs(itemCenter - center) / influence, 0, 1);
-      // Every item grows while the rail is moving; the centered item gets a
-      // second, smaller proximity emphasis. The individual `scale` property
-      // does not disturb the horizontal layout or hover push transforms.
-      const scale = .965 + closeness * .045 + movingBoost;
-      item.style.scale = scale.toFixed(4);
-      const title = item.querySelector('.index-item-title');
-      if (title) title.style.transform = `scale(${item.classList.contains('is-hovered') ? 1.24 : 1})`;
-    });
-  }
-
-  function onWheel(e) {
-    if (window.innerWidth <= 850) return;
-    if (!indexView.classList.contains('is-hidden') && !aboutView.classList.contains('is-visible') && !transitionBusy) {
-      e.preventDefault();
-      const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      targetX = clamp(targetX - delta * 1.06, minIndexX, maxIndexX);
-      indexMotionEnergy = Math.min(1, indexMotionEnergy + Math.abs(delta) / 220);
-      clearIndexHover();
-      scheduleIndexSnap(190);
-    }
-  }
-
-  indexTrack.addEventListener('pointerdown', (e) => {
-    if (window.innerWidth <= 850) return;
-    dragging = true;
-    dragMoved = false;
-    dragStart = e.clientX;
-    dragOrigin = targetX;
-    clearTimeout(indexSnapTimer);
+    elements.indexList.appendChild(section);
   });
-  window.addEventListener('pointermove', (e) => {
-    if (!dragging || window.innerWidth <= 850) return;
-    const dx = e.clientX - dragStart;
-    if (Math.abs(dx) < 6) return;
-    dragMoved = true;
-    clearIndexHover();
-    targetX = clamp(dragOrigin + dx, minIndexX, maxIndexX);
-    indexMotionEnergy = Math.min(1, indexMotionEnergy + Math.abs(dx) / 180);
+}
+
+function setMaskedDetailText(element, text, innerClass) {
+  element.replaceChildren();
+  const inner = document.createElement("span");
+  inner.className = innerClass;
+  inner.textContent = text;
+  inner.style.transform = reducedMotion ? "translateY(0)" : "translateY(115%)";
+  element.appendChild(inner);
+  return inner;
+}
+
+function splitDetailSummaryIntoLines(text, { prime = true } = {}) {
+  const summary = elements.detailSummary;
+  const normalized = String(text || "").trim();
+  summary.replaceChildren();
+  summary.dataset.text = normalized;
+  summary.setAttribute("aria-label", normalized);
+  if (!normalized) return [];
+
+  const words = normalized.split(/\s+/);
+  const probes = words.map((word, index) => {
+    const probe = document.createElement("span");
+    probe.className = "detail-line-probe";
+    probe.textContent = `${word}${index < words.length - 1 ? " " : ""}`;
+    summary.appendChild(probe);
+    return probe;
   });
-  window.addEventListener('pointerup', finishDrag);
-  window.addEventListener('pointercancel', finishDrag);
-  function finishDrag() {
-    if (!dragging) return;
-    dragging = false;
-    scheduleIndexSnap(110);
-    setTimeout(() => { dragMoved = false; }, 0);
+
+  const lines = [];
+  probes.forEach((probe, index) => {
+    const top = Math.round(probe.getBoundingClientRect().top);
+    const previous = lines.at(-1);
+    if (!previous || Math.abs(previous.top - top) > 2) lines.push({ top, words: [] });
+    lines.at(-1).words.push(words[index]);
+  });
+
+  summary.replaceChildren();
+  return lines.map((line) => {
+    const mask = document.createElement("span");
+    mask.className = "detail-line-mask";
+    mask.setAttribute("aria-hidden", "true");
+    const inner = document.createElement("span");
+    inner.className = "detail-line-text";
+    inner.textContent = line.words.join(" ");
+    inner.style.transform = prime && !reducedMotion ? "translateY(115%)" : "translateY(0)";
+    mask.appendChild(inner);
+    summary.appendChild(mask);
+    return inner;
+  });
+}
+
+function animateDetailContent() {
+  const title = elements.detailTitle.querySelector(".detail-title__inner");
+  const lines = [...elements.detailSummary.querySelectorAll(".detail-line-text")];
+  const metadata = [
+    elements.detailOverline.querySelector(".detail-overline__inner"),
+    ...elements.detailNotes.querySelectorAll(".detail-note__inner"),
+    ...elements.detailLinks.querySelectorAll(".detail-link")
+  ].filter(Boolean);
+  const captionLines = [elements.detailCaption, elements.detailImageCount];
+  const animated = [title, ...lines, ...metadata, ...captionLines].filter(Boolean);
+  animated.forEach((element) => element.getAnimations().forEach((animation) => animation.cancel()));
+
+  if (reducedMotion) {
+    animated.forEach((element) => { element.style.transform = "translateY(0)"; });
+    return;
   }
 
-  // ---------------------------------------------------------------------------
-  // PROJECT: fixed title + counter-moving rounded archive columns + center snapping
-  // ---------------------------------------------------------------------------
-  let archiveMetrics = { maxScroll: 0, infoRange: 0, imageRange: 0 };
-  let archiveMotionFrame = null;
-  let archiveSnapTimer = null;
-  let archiveProgrammatic = false;
-  let archiveScrollAnimToken = 0;
-  let archiveMotionEnergy = 0;
-  let previousArchiveScroll = 0;
+  const rise = (element, delay, duration, easing) => {
+    if (!element) return;
+    const animation = element.animate([
+      { transform: "translateY(115%)" },
+      { transform: "translateY(0)" }
+    ], { delay, duration, easing, fill: "both" });
+    animation.finished.then(() => {
+      element.style.transform = "translateY(0)";
+      animation.cancel();
+    }).catch(() => undefined);
+  };
 
-  function populateProject(project) {
-    activeProject = project;
-    projectNumber.textContent = project.number;
-    projectTitle.textContent = project.title;
-    projectKicker.textContent = project.kicker;
+  // The image wipe is driven by the WebGL shader. Text follows on separate
+  // masked tracks so no content block fades or floats in as one unit.
+  rise(title, 55, 470, "cubic-bezier(.12,.82,.16,1)");
+  lines.forEach((line, index) => {
+    rise(line, 145 + index * 52, 410, "cubic-bezier(.16,1,.3,1)");
+  });
+  const metadataStart = 260 + lines.length * 42;
+  metadata.forEach((item, index) => {
+    rise(item, metadataStart + index * 34, 360, "cubic-bezier(.16,1,.3,1)");
+  });
+  captionLines.forEach((item, index) => {
+    rise(item, metadataStart + 70 + index * 38, 330, "cubic-bezier(.16,1,.3,1)");
+  });
+}
 
-    const cards = [
-      ['Context', project.statement, 'statement', null],
-      ...project.meta.map(([label, value, link]) => [
-        label,
-        value,
-        '',
-        link || null
-      ]),
-    ];
+function renderDetail(project) {
+  if (!project) return;
+  setMaskedDetailText(
+    elements.detailOverline,
+    `${project.number} / ${pad(allProjects.length)} · ${project.courseName} · ${project.year}`,
+    "detail-overline__inner"
+  );
+  setMaskedDetailText(elements.detailTitle, project.fullTitle || project.title, "detail-title__inner");
+  splitDetailSummaryIntoLines(project.statement || project.summary);
+  elements.detailNotes.replaceChildren();
+  elements.detailLinks.replaceChildren();
 
-    projectInfoColumn.innerHTML = cards.map(([label, value, kind, link]) => `
-    ${
-      link
-        ? `<a
-            class="info-card ${kind} info-data-link"
-            href="${escapeHTML(link)}"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <span class="info-label">${escapeHTML(label)}</span>
-  
-            <div class="info-value">
-              ${escapeHTML(value)}
-              <span class="inline-arrow">↗</span>
-            </div>
-          </a>`
-  
-        : `<article class="info-card ${kind}">
-            <span class="info-label">${escapeHTML(label)}</span>
-            <div class="info-value">${escapeHTML(value)}</div>
-          </article>`
+  (project.meta || []).forEach(([label, value]) => {
+    const note = document.createElement("dl");
+    note.className = "detail-note";
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+    const inner = document.createElement("div");
+    inner.className = "detail-note__inner";
+    inner.style.transform = reducedMotion ? "translateY(0)" : "translateY(115%)";
+    term.textContent = label;
+    description.textContent = value;
+    inner.append(term, description);
+    note.appendChild(inner);
+    elements.detailNotes.appendChild(note);
+  });
+
+  (project.links || []).forEach((link) => {
+    const anchor = document.createElement("a");
+    anchor.className = "detail-link depth-button";
+    anchor.href = link.url;
+    anchor.innerHTML = `<span>${link.label}</span><span aria-hidden="true">↗</span>`;
+    anchor.style.transform = reducedMotion ? "translateY(0)" : "translateY(115%)";
+    if (/^https?:/i.test(link.url)) {
+      anchor.target = "_blank";
+      anchor.rel = "noopener noreferrer";
     }
-  `).join('') + `
-    <a
-      class="info-card info-link"
-      href="${project.originalUrl}"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <div>
-        <span class="info-label">Original Project</span>
-        <div class="info-value">
-          Open the original interactive exercise.
-        </div>
-      </div>
-  
-      <span class="arrow">↗</span>
-    </a>
-  `;
+    elements.detailLinks.appendChild(anchor);
+    attachDepthEffect(anchor);
+  });
 
-    projectGallery.innerHTML = '';
-    project.images.forEach(([src, caption], index) => {
-      const figure = document.createElement('figure');
-      figure.className = 'gallery-card';
-      figure.innerHTML = `
-        <img src="${src}" alt="${escapeHTML(project.title)}: ${escapeHTML(caption)}" loading="eager">
-        <figcaption class="gallery-caption"><span>${escapeHTML(caption)}</span><span>${String(index + 1).padStart(2,'0')}</span></figcaption>
-      `;
-      const image = figure.querySelector('img');
-      figure.addEventListener('click', () => openFocus(index, image));
-      projectGallery.appendChild(figure);
-    });
+  const firstImage = project.images?.[0];
+  elements.detailCaption.textContent = firstImage?.[1] || project.title;
+  elements.detailImageCount.textContent = `${project.kicker || project.courseName} · 01 / ${pad(project.images?.length || 1)}`;
+  [elements.detailCaption, elements.detailImageCount].forEach((element) => {
+    element.style.transform = reducedMotion ? "translateY(0)" : "translateY(115%)";
+  });
+  elements.detailScrollThumb.style.transform = "translateY(0)";
+}
 
-    setupArchiveCardHover();
-    projectInfoColumn.style.transform = '';
-    projectGallery.style.transform = '';
-    projectScroll.scrollTop = 0;
-    prepareArchiveCards();
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      measureArchive();
-      updateArchiveMotion();
-    }));
+function syncDetailViewport() {
+  if (!gallery || document.body.dataset.view !== "detail") return;
+  const rect = elements.detailMediaHit.getBoundingClientRect();
+  gallery.setDetailViewport?.({
+    x: rect.left,
+    y: rect.top,
+    width: rect.width,
+    height: rect.height,
+    right: rect.right,
+    bottom: rect.bottom
+  });
+}
+
+function syncDetailCardMotion() {
+  if (gallery && elements.detailUI) {
+    const view = document.body.dataset.view;
+    const isDetailView = view === "detail" || view === "detail-exit";
+    const canvasWidth = Math.max(elements.canvas.clientWidth, 1);
+    const pixelsPerWorldUnit = canvasWidth / Math.max(gallery.viewWidth || 1, 1);
+    const swipePixels = isDetailView
+      ? (gallery.detailSwipe || 0) * pixelsPerWorldUnit
+      : 0;
+    elements.detailUI.style.setProperty("--detail-swipe-x", `${swipePixels.toFixed(2)}px`);
+  }
+  detailMotionFrame = requestAnimationFrame(syncDetailCardMotion);
+}
+
+function updateDetailMedia(payload, maybeTotal, maybeCaption, maybeProgress) {
+  let index = 0;
+  let total = currentProject?.images?.length || 1;
+  let caption = currentProject?.images?.[0]?.[1] || currentProject?.title || "";
+  let progress = 0;
+
+  if (typeof payload === "object" && payload) {
+    index = payload.index ?? payload.activeIndex ?? 0;
+    total = payload.total ?? total;
+    caption = payload.caption ?? payload.alt ?? caption;
+    progress = payload.progress ?? (total > 1 ? index / (total - 1) : 0);
+  } else {
+    index = Number(payload) || 0;
+    total = Number(maybeTotal) || total;
+    caption = maybeCaption || caption;
+    progress = Number.isFinite(maybeProgress) ? maybeProgress : (total > 1 ? index / (total - 1) : 0);
   }
 
-  function setupArchiveCardHover() {
-    [...projectInfoColumn.children, ...projectGallery.children].forEach((el) => {
-      el.dataset.hoverProgress = '0';
+  const oneBased = Math.max(1, Math.min(total, index + 1));
+  elements.detailCaption.textContent = caption;
+  elements.detailImageCount.textContent = `${currentProject?.kicker || currentProject?.courseName || "Project"} · ${pad(oneBased)} / ${pad(total)}`;
+  const travel = Math.max(0, elements.detailMediaHit.clientHeight - 88);
+  elements.detailScrollThumb.style.transform = `translateY(${Math.max(0, Math.min(1, progress)) * travel * .82}px)`;
+}
 
-      el.addEventListener('pointerenter', () => {
-        requestArchiveMotion();
-      });
+function handleDetailProjectChange(project, index) {
+  if (!project || currentProject?.id === project.id) return;
+  currentProject = project;
+  currentIndex = Number.isFinite(index)
+    ? index
+    : visibleProjects.findIndex((item) => item.id === project.id);
+  renderDetail(project);
+  setRoute(project.id, { replace: true });
+  requestAnimationFrame(animateDetailContent);
+}
 
-      el.addEventListener('pointerleave', () => {
-        requestArchiveMotion();
-      });
-    });
+async function openProject(id, { replaceRoute = false } = {}) {
+  const project = allProjects.find((item) => item.id === id);
+  if (!project) return;
+  if (!gallery) {
+    const fallbackLink = project.links?.[0]?.url;
+    if (fallbackLink) location.href = fallbackLink;
+    return;
   }
 
-  function prepareArchiveCards() {
-    [...projectInfoColumn.children, ...projectGallery.children].forEach((el) => el.classList.remove('is-in'));
+  if (!visibleProjects.some((item) => item.id === id)) applyFilter("all", id);
+  currentProject = project;
+  currentIndex = visibleProjects.findIndex((item) => item.id === id);
+  renderDetail(project);
+
+  const token = ++transitionToken;
+  setView("detail-transition");
+  gallery.setEnabled?.(true);
+  const engineTransition = gallery.openDetail(id);
+  setRoute(id, { replace: replaceRoute });
+
+  await waitForTransition(engineTransition, reducedMotion ? 20 : 690);
+  if (token !== transitionToken) return;
+  setView("detail");
+  requestAnimationFrame(() => {
+    syncDetailViewport();
+    animateDetailContent();
+  });
+  elements.detailClose.focus({ preventScroll: true });
+}
+
+async function openRing(id, { replaceRoute = false } = {}) {
+  const project = allProjects.find((item) => item.id === id);
+  if (!project) return;
+  if (!visibleProjects.some((item) => item.id === id)) applyFilter("all", id);
+
+  currentProject = project;
+  currentIndex = visibleProjects.findIndex((item) => item.id === id);
+  updateActiveCopy(project, currentIndex, visibleProjects.length, true);
+  renderRing(project);
+
+  const token = ++transitionToken;
+  document.body.classList.remove("is-ring-closing");
+  document.body.classList.add("is-ring-opening");
+  gallery?.setEnabled?.(true);
+  const transition = gallery?.openRing?.(id) ?? gallery?.showAbout?.(true);
+  setView("ring");
+  setRoute(`preview/${id}`, { replace: replaceRoute });
+  await waitForTransition(transition, reducedMotion ? 20 : 180, 1700);
+  document.body.classList.remove("is-ring-opening");
+  if (token !== transitionToken || document.body.dataset.view !== "ring") return;
+  elements.ringViewProject.focus({ preventScroll: true });
+}
+
+async function closeRing({ replaceRoute = true } = {}) {
+  const token = ++transitionToken;
+  document.body.classList.remove("is-ring-opening");
+  document.body.classList.add("is-ring-closing");
+  const transition = gallery?.closeRing?.();
+  setRoute("", { replace: replaceRoute });
+  if (!transition) gallery?.setMode?.("work");
+  await waitForTransition(transition, reducedMotion ? 20 : 160, 1500);
+  if (token !== transitionToken) {
+    document.body.classList.remove("is-ring-closing");
+    return;
+  }
+  setView("work");
+  document.body.classList.remove("is-ring-closing");
+  elements.viewProject.focus({ preventScroll: true });
+}
+
+async function closeProject({ replaceRoute = true } = {}) {
+  const token = ++transitionToken;
+  setView("detail-exit");
+  const engineTransition = gallery?.closeDetail({ returnTo: "ring" });
+  setRoute(currentProject ? `preview/${currentProject.id}` : "", { replace: replaceRoute });
+  if (!reducedMotion) {
+    elements.detailCopy.getAnimations().forEach((animation) => animation.cancel());
+    elements.detailCopy.animate([
+      { transform: "translateY(0)", clipPath: "inset(0 0 0 0)" },
+      { transform: "translateY(34px)", clipPath: "inset(100% 0 0 0)" }
+    ], { duration: 320, easing: "cubic-bezier(.55,0,.8,.45)" });
+    await wait(350);
+    if (token !== transitionToken) return;
+    setView("detail-transition");
+  }
+  await waitForTransition(engineTransition, reducedMotion ? 20 : 270);
+  if (token !== transitionToken) return;
+  gallery?.setMode("ring");
+  renderRing(currentProject);
+  setView("ring");
+  elements.ringViewProject.focus({ preventScroll: true });
+}
+
+async function switchProject(direction) {
+  if (!currentProject || document.body.dataset.view !== "detail" || detailSwitchInFlight) return;
+  const sourceIndex = visibleProjects.findIndex((project) => project.id === currentProject.id);
+  const nextIndex = (sourceIndex + direction + visibleProjects.length) % visibleProjects.length;
+  const nextProject = visibleProjects[nextIndex];
+  if (!nextProject) return;
+
+  detailSwitchInFlight = true;
+  setRoute(nextProject.id, { replace: true });
+
+  if (!gallery?.switchDetail) {
+    currentProject = nextProject;
+    currentIndex = nextIndex;
+    renderDetail(nextProject);
+    requestAnimationFrame(animateDetailContent);
+    detailSwitchInFlight = false;
+    return;
   }
 
-  function revealArchiveCards(baseDelay = 150) {
-    const elements = [...projectInfoColumn.children, ...projectGallery.children];
-    elements.forEach((el) => el.classList.remove('is-in'));
-    elements.forEach((el, i) => setTimeout(() => el.classList.add('is-in'), baseDelay + i * 56));
-  }
-
-  function measureArchive() {
-    const viewport = projectScroll.clientHeight || window.innerHeight;
-    const maxScroll = Math.max(0, projectScroll.scrollHeight - viewport);
-    archiveMetrics.maxScroll = maxScroll;
-    archiveMetrics.infoRange = Math.max(0, projectInfoColumn.scrollHeight - viewport * .72);
-    archiveMetrics.imageRange = Math.max(0, projectGallery.scrollHeight - viewport * .72);
-    updateArchiveMotion();
-  }
-
-  function requestArchiveMotion() {
-    if (archiveMotionFrame) return;
-    archiveMotionFrame = requestAnimationFrame(() => {
-      archiveMotionFrame = null;
-      updateArchiveMotion();
-    });
-  }
-
-  function updateArchiveMotion() {
-    if (!projectView.classList.contains('is-visible') && !activeProject) return;
-    const { maxScroll, infoRange, imageRange } = archiveMetrics;
-    const s = projectScroll.scrollTop;
-    const p = maxScroll > 0 ? clamp(s / maxScroll, 0, 1) : 0;
-
-    // The text column travels upward; the image column travels downward.
-    // Native scrolling contributes -scrollTop, so these transforms compensate
-    // to create two independent, opposing visual tracks.
-    const infoTransform = s - p * infoRange;
-    const imageTransform = -imageRange + p * imageRange + s;
-    projectInfoColumn.style.transform = `translate3d(0,${infoTransform}px,0)`;
-    projectGallery.style.transform = `translate3d(0,${imageTransform}px,0)`;
-
-    const scrollRect = projectScroll.getBoundingClientRect();
-    const visualCenter = scrollRect.top + projectScroll.clientHeight * .5;
-    const influence = Math.max(260, projectScroll.clientHeight * .62);
-    archiveMotionEnergy *= .90;
-    const motionBoost = archiveMotionEnergy * .075;
-
-    // Smooth hover interpolation:
-    // The old version jumped instantly from 0 to .055 on hover.
-    // Here every card stores its own hoverProgress (0 → 1) and eases toward
-    // the target over multiple animation frames, so both enlarge and shrink
-    // feel slow and fluid.
-    let hoverStillAnimating = false;
-
-    [...projectInfoColumn.children, ...projectGallery.children].forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      const cardCenter = rect.top + rect.height / 2;
-      const closeness = 1 - clamp(Math.abs(cardCenter - visualCenter) / influence, 0, 1);
-
-      const hoverTarget = card.matches(':hover') ? 1 : 0;
-      const hoverCurrent = Number(card.dataset.hoverProgress || 0);
-
-      // Smaller = slower.
-      // .022 gives a noticeably slow, soft hover without feeling unresponsive.
-      const hoverSpeed = .022;
-      let hoverProgress = hoverCurrent + (hoverTarget - hoverCurrent) * hoverSpeed;
-
-      // Snap only when extremely close so the RAF loop can stop cleanly.
-      if (Math.abs(hoverTarget - hoverProgress) < .001) {
-        hoverProgress = hoverTarget;
-      } else {
-        hoverStillAnimating = true;
-      }
-
-      card.dataset.hoverProgress = hoverProgress.toFixed(4);
-
-      // This controls HOW MUCH the card grows, not how fast.
-      const hoverBoost = hoverProgress * .055;
-
-      // In the reference the archive breathes larger while it is physically
-      // moving, then settles back to a center-weighted scale when motion stops.
-      const scale = .925 + closeness * .115 + motionBoost + hoverBoost;
-      card.style.scale = scale.toFixed(4);
-      card.style.zIndex = String(
-        2 + Math.round(closeness * 8) + Math.round(hoverProgress * 8)
-      );
-    });
-
-    // Keep animating while either scrolling inertia or hover easing is active.
-    if (archiveMotionEnergy > .006 || hoverStillAnimating) requestArchiveMotion();
-  }
-
-  function scheduleArchiveSnap(delay = 170) {
-    if (archiveProgrammatic || autoScrollFrame || edgeArchiveActive || transitionBusy) return;
-    clearTimeout(archiveSnapTimer);
-    archiveSnapTimer = setTimeout(snapArchiveToNearest, delay);
-  }
-
-  function snapArchiveToNearest() {
-    if (!projectView.classList.contains('is-visible') || archiveProgrammatic || edgeArchiveActive || transitionBusy) return;
-    measureArchive();
-    const { maxScroll, infoRange, imageRange } = archiveMetrics;
-    if (maxScroll < 10) return;
-
-    const scrollRect = projectScroll.getBoundingClientRect();
-    const visualCenter = scrollRect.top + projectScroll.clientHeight * .5;
-    const candidates = [...projectInfoColumn.children, ...projectGallery.children];
-    let nearest = null;
-    let nearestDistance = Infinity;
-    candidates.forEach((card) => {
-      const rect = card.getBoundingClientRect();
-      const center = rect.top + rect.height / 2;
-      const distance = Math.abs(center - visualCenter);
-      if (distance < nearestDistance) { nearestDistance = distance; nearest = card; }
-    });
-    if (!nearest) return;
-
-    const rect = nearest.getBoundingClientRect();
-    const center = rect.top + rect.height / 2;
-    const deltaY = visualCenter - center;
-    const isInfo = nearest.parentElement === projectInfoColumn;
-    const derivative = isInfo ? -(infoRange / maxScroll) : (imageRange / maxScroll);
-    if (Math.abs(derivative) < .035) return;
-    const target = clamp(projectScroll.scrollTop + deltaY / derivative, 0, maxScroll);
-    if (Math.abs(target - projectScroll.scrollTop) < 5) return;
-    smoothProjectScrollTo(target, 680);
-  }
-
-  function smoothProjectScrollTo(target, duration = 680) {
-    const token = ++archiveScrollAnimToken;
-    const start = projectScroll.scrollTop;
-    const distance = target - start;
-    if (Math.abs(distance) < 1) return;
-    archiveProgrammatic = true;
-    const startTime = performance.now();
-    function tick(now) {
-      if (token !== archiveScrollAnimToken) return;
-      const t = clamp((now - startTime) / duration, 0, 1);
-      const eased = 1 - Math.pow(1 - t, 4);
-      projectScroll.scrollTop = start + distance * eased;
-      requestArchiveMotion();
-      if (t < 1) requestAnimationFrame(tick);
-      else {
-        archiveProgrammatic = false;
-        projectScroll.scrollTop = target;
-        requestArchiveMotion();
-      }
+  try {
+    await gallery.switchDetail(nextProject.id, direction);
+    // The WebGL carousel normally commits through handleDetailProjectChange.
+    // Keep a fallback for interrupted or reduced-motion transitions.
+    if (currentProject?.id !== nextProject.id) {
+      currentProject = nextProject;
+      currentIndex = nextIndex;
+      renderDetail(nextProject);
     }
-    requestAnimationFrame(tick);
+  } finally {
+    detailSwitchInFlight = false;
   }
+}
 
-  function projectFixedEntranceElements() {
-    return [
-      backButton,
-      projectNumber,
-      projectTitle,
-      projectView.querySelector('.project-year'),
-      projectKicker,
-      projectView.querySelector('.project-fixed-footer span')
-    ].filter(Boolean);
+function openWork({ replaceRoute = false } = {}) {
+  ++transitionToken;
+  gallery?.setEnabled?.(true);
+  if (document.body.dataset.view === "ring") gallery?.closeRing?.();
+  else gallery?.setMode("work");
+  setView("work");
+  setRoute("", { replace: replaceRoute });
+}
+
+function openInfo({ replaceRoute = false } = {}) {
+  // INFO is an entry point into the current project's immersive context.
+  // It deliberately uses the same continuous ribbon-to-ring transition as a
+  // card click, rather than switching to the former static info panel.
+  if (currentProject) return openRing(currentProject.id, { replaceRoute });
+  return openWork({ replaceRoute });
+}
+
+function openIndex({ replaceRoute = false } = {}) {
+  ++transitionToken;
+  gallery?.setEnabled?.(false);
+  setView("index");
+  setRoute("index", { replace: replaceRoute });
+  elements.indexClose.focus({ preventScroll: true });
+}
+
+function route() {
+  routeFromHistory = true;
+  const value = decodeURIComponent(location.hash.slice(1));
+  if (value === "info") openInfo({ replaceRoute: true });
+  else if (value === "index") openIndex({ replaceRoute: true });
+  else if (value.startsWith("preview/") && allProjects.some((project) => project.id === value.slice(8))) {
+    openRing(value.slice(8), { replaceRoute: true });
   }
+  else if (allProjects.some((project) => project.id === value)) openProject(value, { replaceRoute: true });
+  else openWork({ replaceRoute: true });
+  routeFromHistory = false;
+}
 
-  function prepareProjectFixedEntrance() {
-    projectFixedEntranceElements().forEach((el) => {
-      el.getAnimations().forEach((a) => a.cancel());
-      // Preserve the designed resting opacity (e.g. 0.45 for the back link) so
-      // the element does not flash to 100% opacity at the end of the entrance.
-      el.dataset.enterOpacity = getComputedStyle(el).opacity || '1';
-      el.style.opacity = '0';
-      el.style.translate = '118px 0';
-    });
-  }
+function attachDepthEffect(element) {
+  if (!element || element.dataset.depthReady) return;
+  element.dataset.depthReady = "true";
 
-  function playProjectFixedEntrance() {
-    projectFixedEntranceElements().forEach((el, i) => {
-      const targetOpacity = Number(el.dataset.enterOpacity || 1);
-      const animation = el.animate([
-        {opacity:0, translate:'118px 0'},
-        {opacity:targetOpacity, translate:'0px 0'}
-      ], {
-        duration: 920,
-        delay: 70 + i * 72,
-        easing: 'cubic-bezier(.16,1,.3,1)',
-        fill: 'forwards'
-      });
-      animation.finished.then(() => {
-        animation.cancel();
-        el.style.opacity = '';
-        el.style.translate = '';
-        delete el.dataset.enterOpacity;
-      }).catch(() => {});
-    });
-  }
+  element.addEventListener("pointermove", (event) => {
+    const rect = element.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / Math.max(1, rect.height)));
+    element.style.setProperty("--px", `${(x * 100).toFixed(1)}%`);
+    element.style.setProperty("--py", `${(y * 100).toFixed(1)}%`);
+    element.style.setProperty("--shadow-x", `${((x - .5) * -7).toFixed(2)}px`);
+    element.style.setProperty("--shadow-y", `${((y - .5) * -7).toFixed(2)}px`);
+    element.style.setProperty("--shadow-x-inverse", `${((x - .5) * 7).toFixed(2)}px`);
+    element.style.setProperty("--shadow-y-inverse", `${((y - .5) * 7).toFixed(2)}px`);
+    element.style.setProperty("--text-x", `${((x - .5) * 1.8).toFixed(2)}px`);
+    element.style.setProperty("--text-y", `${((y - .5) * 1.8).toFixed(2)}px`);
+  });
 
-  function openProject(id, pushHistory = true) {
-    const project = projects.find((p) => p.id === id);
-    if (!project || transitionBusy) return;
-    cancelAutoScroll();
-    clearIndexHover();
-    populateProject(project);
-    prepareProjectFixedEntrance();
-    zoomBetween(indexView, projectView, () => {
-      indexView.classList.add('is-hidden');
-      projectView.classList.add('is-visible');
-      projectView.setAttribute('aria-hidden','false');
-      setNav('');
-      requestAnimationFrame(() => {
-        playProjectFixedEntrance();
-        revealArchiveCards(150);
-      });
-    }, () => {
-      measureArchive();
-      startArchivePreviewScroll();
-    });
-    if (pushHistory) safePushState({project:id}, `#${id}`);
-  }
+  element.addEventListener("pointerenter", () => element.classList.add("is-depth-hover"));
+  element.addEventListener("pointerleave", () => {
+    element.classList.remove("is-depth-hover", "is-pressed");
+    element.style.removeProperty("--text-x");
+    element.style.removeProperty("--text-y");
+  });
+  element.addEventListener("pointerdown", () => element.classList.add("is-pressed"));
+  element.addEventListener("pointerup", () => element.classList.remove("is-pressed"));
+}
 
-  function showIndex(pushHistory = true) {
-    if (transitionBusy || focusView.classList.contains('is-visible')) return;
-    cancelAutoScroll();
-    ++archiveScrollAnimToken;
-    if (!projectView.classList.contains('is-visible')) {
-      aboutView.classList.remove('is-visible');
-      indexView.classList.remove('is-hidden');
-      setNav('index');
-      scheduleIndexSnap(60);
+function bindDetailInput() {
+  elements.detailMediaHit.addEventListener("wheel", (event) => {
+    if (document.body.dataset.view !== "detail") return;
+    event.preventDefault();
+    const delta = Math.abs(event.deltaY) >= Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+    gallery?.scrollDetail(delta);
+  }, { passive: false });
+
+  elements.detailMediaHit.addEventListener("pointerdown", (event) => {
+    if (document.body.dataset.view !== "detail" || event.button !== 0) return;
+    detailPointer = {
+      id: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      lastTime: performance.now(),
+      axis: null,
+      velocityX: 0
+    };
+    elements.detailMediaHit.setPointerCapture(event.pointerId);
+  });
+
+  elements.detailMediaHit.addEventListener("pointermove", (event) => {
+    gallery?.addRipplePoint?.(event.clientX, event.clientY);
+    if (!detailPointer || detailPointer.id !== event.pointerId) return;
+    const now = performance.now();
+    const dx = event.clientX - detailPointer.lastX;
+    const dy = event.clientY - detailPointer.lastY;
+    const totalX = event.clientX - detailPointer.startX;
+    const totalY = event.clientY - detailPointer.startY;
+    if (!detailPointer.axis && Math.hypot(totalX, totalY) > 7) {
+      detailPointer.axis = Math.abs(totalX) > Math.abs(totalY) ? "x" : "y";
+      if (detailPointer.axis === "x") gallery?.beginDetailDrag?.();
+    }
+    if (detailPointer.axis === "x") {
+      detailPointer.velocityX = dx / Math.max(8, now - detailPointer.lastTime) * 1000;
+      gallery?.dragDetail(dx, detailPointer.velocityX);
+    } else if (detailPointer.axis === "y") {
+      gallery?.scrollDetail(-dy * 1.3);
+    }
+    detailPointer.lastX = event.clientX;
+    detailPointer.lastY = event.clientY;
+    detailPointer.lastTime = now;
+  });
+
+  const finish = (event) => {
+    if (!detailPointer || detailPointer.id !== event.pointerId) return;
+    if (detailPointer.axis === "x") {
+      if (gallery?.endDetailDrag) gallery.endDetailDrag(detailPointer.velocityX);
+      else gallery?.dragDetail(0, detailPointer.velocityX);
+    }
+    if (elements.detailMediaHit.hasPointerCapture(event.pointerId)) {
+      elements.detailMediaHit.releasePointerCapture(event.pointerId);
+    }
+    detailPointer = null;
+  };
+  elements.detailMediaHit.addEventListener("pointerup", finish);
+  elements.detailMediaHit.addEventListener("pointercancel", finish);
+}
+
+function bindInterface() {
+  elements.home.addEventListener("click", () => openWork());
+  elements.work.addEventListener("click", () => openWork());
+  elements.info.addEventListener("click", () => openInfo());
+  elements.index.addEventListener("click", () => openIndex());
+  elements.infoWork.addEventListener("click", () => openWork());
+  elements.infoIndex.addEventListener("click", () => openIndex());
+  elements.indexClose.addEventListener("click", () => openWork());
+  elements.detailClose.addEventListener("click", () => closeProject());
+  elements.viewProject.addEventListener("click", () => currentProject && openRing(currentProject.id));
+  elements.ringViewProject.addEventListener("click", () => currentProject && openProject(currentProject.id));
+  elements.previous.addEventListener("click", () => switchProject(-1));
+  elements.next.addEventListener("click", () => switchProject(1));
+
+  document.querySelectorAll(".depth-button").forEach(attachDepthEffect);
+  bindDetailInput();
+
+  window.addEventListener("resize", () => {
+    gallery?.resize();
+    requestAnimationFrame(syncDetailViewport);
+  }, { passive: true });
+  window.addEventListener("popstate", route);
+
+  document.addEventListener("keydown", (event) => {
+    const view = document.body.dataset.view;
+    if (event.key === "Escape") {
+      if (view === "detail" || view === "detail-transition") closeProject();
+      else if (view === "ring") closeRing();
+      else if (view === "info" || view === "index") openWork();
       return;
     }
-    zoomBetween(projectView, indexView, () => {
-      indexView.classList.remove('is-hidden');
-      projectView.classList.remove('is-visible');
-      projectView.setAttribute('aria-hidden','true');
-      setNav('index');
-    }, () => scheduleIndexSnap(70));
-    activeProject = null;
-    if (pushHistory) safePushState({}, location.protocol === 'file:' ? location.href.split('#')[0] : window.location.pathname);
-  }
-
-  // A short self-running preview of the counter-moving archive. It then snaps
-  // to the nearest centered card and gives control back to the viewer.
-  function startArchivePreviewScroll() {
-    cancelAutoScroll();
-    measureArchive();
-    const token = ++autoScrollToken;
-    const max = archiveMetrics.maxScroll;
-    if (max < 100) return;
-    const peak = Math.min(max * .34, 620);
-    const settle = Math.min(max * .19, 320);
-    const t0 = performance.now() + 180;
-    const durationA = 1750;
-    const durationB = 1050;
-    archiveProgrammatic = true;
-
-    function tick(now) {
-      if (token !== autoScrollToken) return;
-      if (now < t0) { autoScrollFrame = requestAnimationFrame(tick); return; }
-      const elapsed = now - t0;
-      if (elapsed <= durationA) {
-        const p = easeInOutCubic(elapsed / durationA);
-        projectScroll.scrollTop = peak * p;
-      } else if (elapsed <= durationA + durationB) {
-        const p = easeOutCubic((elapsed - durationA) / durationB);
-        projectScroll.scrollTop = peak + (settle - peak) * p;
-      } else {
-        projectScroll.scrollTop = settle;
-        autoScrollFrame = null;
-        archiveProgrammatic = false;
-        requestArchiveMotion();
-        setTimeout(snapArchiveToNearest, 100);
-        return;
-      }
-      requestArchiveMotion();
-      autoScrollFrame = requestAnimationFrame(tick);
-    }
-    autoScrollFrame = requestAnimationFrame(tick);
-  }
-
-  function cancelAutoScroll() {
-    autoScrollToken++;
-    if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame);
-    autoScrollFrame = null;
-    archiveProgrammatic = false;
-  }
-
-  function stopArchiveAutomationForUser() {
-    cancelAutoScroll();
-    ++archiveScrollAnimToken;
-    archiveProgrammatic = false;
-  }
-
-  projectScroll.addEventListener('scroll', () => {
-    const delta = Math.abs(projectScroll.scrollTop - previousArchiveScroll);
-    previousArchiveScroll = projectScroll.scrollTop;
-    archiveMotionEnergy = Math.min(1, archiveMotionEnergy + delta / 72);
-    requestArchiveMotion();
-    if (!archiveProgrammatic && !autoScrollFrame) scheduleArchiveSnap(180);
-  }, {passive:true});
-  ['wheel','pointerdown','touchstart'].forEach((type) => projectScroll.addEventListener(type, stopArchiveAutomationForUser, {passive:true}));
-
-  // ---------------------------------------------------------------------------
-  // FOCUS: central dark curtain + FLIP image zoom + liquid distortion + text slide
-  // ---------------------------------------------------------------------------
-  async function openFocus(index, sourceImage) {
-    if (!activeProject || transitionBusy) return;
-    cancelAutoScroll();
-    transitionBusy = true;
-    activeImageIndex = index;
-    const [src] = activeProject.images[index];
-
-    setFocusContent(index);
-    focusImage.src = src;
-    try { if (focusImage.decode) await focusImage.decode(); } catch (_) {}
-    focusImage.style.opacity = '0';
-    focusView.classList.remove('is-closing','is-opening','copy-in');
-    focusView.classList.add('is-visible');
-    document.body.classList.add('focus-active');
-    focusView.setAttribute('aria-hidden','false');
-    focusView.style.opacity = '0';
-    focusView.style.visibility = 'visible';
-
-    const sourceRect = sourceImage.getBoundingClientRect();
-    await nextFrame();
-    const shellRect = focusImageShell.getBoundingClientRect();
-    const ratio = sourceImage.naturalWidth && sourceImage.naturalHeight
-      ? sourceImage.naturalWidth / sourceImage.naturalHeight
-      : sourceRect.width / sourceRect.height;
-    const targetRect = containRect(shellRect, ratio);
-
-    // Dark background, outgoing page, and elastic mesh all begin together.
-    // There is no intermediate curtain/opening phase, so the transition remains
-    // continuous even on slower machines.
-    const bgAnim = focusView.animate([
-      {opacity:0},
-      {opacity:1}
-    ], {duration:560,easing:'cubic-bezier(.22,.72,.2,1)',fill:'forwards'});
-
-    const pageAnim = projectView.animate([
-      {transform:'scale(1)',opacity:1},
-      {transform:'scale(.994)',opacity:.025}
-    ], {duration:650,easing:'cubic-bezier(.22,.72,.2,1)',fill:'forwards'});
-
-    let sourceOpacity = sourceImage.style.opacity;
-    const meshPromise = (webglFocus && webglFocus.supported)
-      ? webglFocus.play({
-          image: sourceImage,
-          sourceRect,
-          targetRect,
-          duration: 930,
-          strength: 1,
-          onStart: () => { sourceImage.style.opacity = '0'; }
-        })
-      : Promise.resolve(false);
-
-    // If WebGL is unavailable, use one restrained DOM FLIP as a fallback rather
-    // than reintroducing the old random/noisy deformation.
-    let fallbackAnim = null;
-    if (!(webglFocus && webglFocus.supported)) {
-      focusMorph.src = sourceImage.currentSrc || sourceImage.src;
-      Object.assign(focusMorph.style, {
-        left: `${sourceRect.left}px`, top: `${sourceRect.top}px`,
-        width: `${sourceRect.width}px`, height: `${sourceRect.height}px`,
-        opacity: '1', borderRadius: '16px', filter: 'none', clipPath: 'none'
-      });
-      focusMorph.classList.add('is-active');
-      sourceImage.style.opacity = '0';
-      fallbackAnim = focusMorph.animate([
-        {left:`${sourceRect.left}px`,top:`${sourceRect.top}px`,width:`${sourceRect.width}px`,height:`${sourceRect.height}px`},
-        {left:`${targetRect.left}px`,top:`${targetRect.top}px`,width:`${targetRect.width}px`,height:`${targetRect.height}px`}
-      ], {duration:930,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});
-    }
-
-    // In the reference, typography commits after the image has clearly entered
-    // the dark state; each label glides from right to left with a soft stagger.
-    setTimeout(restartFocusText, 470);
-
-    const waits = [bgAnim.finished, pageAnim.finished, meshPromise];
-    if (fallbackAnim) waits.push(fallbackAnim.finished);
-    try { await Promise.all(waits); } catch (_) {}
-
-    // Cross from the final WebGL frame to the regular focus image with no jump.
-    focusImage.style.opacity = '1';
-    await nextFrame();
-    if (webglFocus) webglFocus.hide();
-    if (fallbackAnim) {
-      fallbackAnim.cancel();
-      focusMorph.classList.remove('is-active');
-    }
-    sourceImage.style.opacity = sourceOpacity;
-    bgAnim.cancel();
-    pageAnim.cancel();
-    projectView.style.opacity = '';
-    projectView.style.transform = '';
-    focusView.style.opacity = '';
-    focusView.style.visibility = '';
-    transitionBusy = false;
-  }
-
-
-  function setFocusContent(index) {
-    const [,caption] = activeProject.images[index];
-    focusProject.textContent = activeProject.title;
-    focusIndex.textContent = `${String(index+1).padStart(2,'0')} / ${String(activeProject.images.length).padStart(2,'0')}`;
-    focusMedium.textContent = activeProject.kicker;
-    focusSide.textContent = caption;
-    focusCaption.textContent = `${activeProject.number} — ${activeProject.title} / ${caption}`;
-  }
-
-  function restartFocusText() {
-    focusView.classList.remove('copy-in');
-    focusView.querySelectorAll('.focus-copy-item').forEach((el) => {
-      el.style.animation = 'none';
-      void el.offsetWidth;
-      el.style.animation = '';
-    });
-    void focusView.offsetWidth;
-    focusView.classList.add('copy-in');
-  }
-
-  async function stepFocus(direction) {
-    if (!activeProject || !focusView.classList.contains('is-visible') || transitionBusy) return;
-    transitionBusy = true;
-    const count = activeProject.images.length;
-    activeImageIndex = (activeImageIndex + direction + count) % count;
-    const [src] = activeProject.images[activeImageIndex];
-    setFocusContent(activeImageIndex);
-
-    focusImage.src = src;
-    try { if (focusImage.decode) await focusImage.decode(); } catch (_) {}
-    const ratio = focusImage.naturalWidth && focusImage.naturalHeight
-      ? focusImage.naturalWidth / focusImage.naturalHeight
-      : 1;
-    const shellRect = focusImageShell.getBoundingClientRect();
-    const targetRect = containRect(shellRect, ratio);
-
-    if (webglFocus && webglFocus.supported) {
-      focusImage.style.opacity = '0';
-      await webglFocus.pulse({
-        image: focusImage,
-        rect: targetRect,
-        duration: 720,
-        strength: .78
-      });
-      focusImage.style.opacity = '1';
-      await nextFrame();
-      webglFocus.hide();
-    } else {
-      focusImage.animate([
-        {transform:'scale(.985,1.015)',opacity:.3},
-        {transform:'scale(1.015,.99)',opacity:1},
-        {transform:'scale(1)',opacity:1}
-      ], {duration:620,easing:'cubic-bezier(.16,1,.3,1)'});
-    }
-    restartFocusText();
-    transitionBusy = false;
-  }
-
-  async function closeFocus() {
-    if (!focusView.classList.contains('is-visible') || transitionBusy) return;
-    transitionBusy = true;
-    if (webglFocus) webglFocus.hide();
-    focusView.classList.remove('is-opening','is-closing','copy-in');
-
-    // Keep both pages alive during the entire dissolve; this prevents a blank
-    // or black "hold" frame between states.
-    projectView.style.visibility = 'visible';
-    projectView.style.opacity = '.08';
-    projectView.style.transform = 'scale(1.018)';
-
-    const out = focusView.animate([
-      {opacity:1},
-      {opacity:0}
-    ], {duration:650,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});
-    const incoming = projectView.animate([
-      {transform:'scale(1.012)',opacity:.08},
-      {transform:'scale(1)',opacity:1}
-    ], {duration:700,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});
-
-    try { await Promise.all([out.finished, incoming.finished]); } catch (_) {}
-    focusView.classList.remove('is-visible');
-    document.body.classList.remove('focus-active');
-    focusView.setAttribute('aria-hidden','true');
-    focusImageShell.classList.remove('is-liquid','is-swap');
-    projectView.style.visibility = '';
-    projectView.style.opacity = '';
-    projectView.style.transform = '';
-    transitionBusy = false;
-  }
-
-
-  // ---------------------------------------------------------------------------
-  // Soft cross-fade / micro-zoom page transitions
-  // ---------------------------------------------------------------------------
-  async function zoomBetween(fromView, toView, switchState, complete) {
-    if (transitionBusy) return;
-    transitionBusy = true;
-    clearTimeout(indexSnapTimer);
-    clearTimeout(archiveSnapTimer);
-
-    // Cross-fade both states at the same time. switchState may toggle classes
-    // that normally hide the old view, so inline visibility keeps it rendered
-    // just long enough for a continuous dissolve.
-    toView.style.opacity = '0';
-    toView.style.transform = 'scale(.986)';
-    switchState();
-    fromView.style.visibility = 'visible';
-    fromView.style.pointerEvents = 'none';
-    toView.style.visibility = 'visible';
-    toView.style.pointerEvents = 'none';
-    await nextFrame();
-
-    const outAnim = fromView.animate([
-      {transform:'scale(1)',opacity:1},
-      {transform:'scale(1.012)',opacity:0}
-    ], {duration:720,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});
-
-    const inAnim = toView.animate([
-      {transform:'scale(.992)',opacity:0},
-      {transform:'scale(1)',opacity:1}
-    ], {duration:760,easing:'cubic-bezier(.16,1,.3,1)',fill:'forwards'});
-
-    try { await Promise.all([outAnim.finished, inAnim.finished]); } catch (_) {}
-    outAnim.cancel();
-    inAnim.cancel();
-    [fromView,toView].forEach((view) => {
-      view.style.transform = '';
-      view.style.opacity = '';
-      view.style.visibility = '';
-      view.style.pointerEvents = '';
-    });
-    transitionBusy = false;
-    if (complete) complete();
-  }
-
-  // ---------------------------------------------------------------------------
-  // About + navigation
-  // ---------------------------------------------------------------------------
-  function openAbout() {
-    if (transitionBusy || focusView.classList.contains('is-visible')) return;
-    const from = projectView.classList.contains('is-visible') ? projectView : indexView;
-    cancelAutoScroll();
-    zoomBetween(from, aboutView, () => {
-      aboutView.classList.add('is-visible');
-      aboutView.setAttribute('aria-hidden','false');
-      if (from === indexView) indexView.classList.add('is-hidden');
-      else projectView.classList.remove('is-visible');
-      setNav('about');
-    });
-  }
-  function closeAbout() {
-    if (!aboutView.classList.contains('is-visible') || transitionBusy) return;
-    zoomBetween(aboutView,indexView,() => {
-      aboutView.classList.remove('is-visible');
-      aboutView.setAttribute('aria-hidden','true');
-      indexView.classList.remove('is-hidden');
-      setNav('index');
-    });
-    activeProject = null;
-  }
-  function setNav(active) {
-    indexButton.classList.toggle('is-active',active==='index');
-    aboutButton.classList.toggle('is-active',active==='about');
-  }
-
-  // focus wheel / keyboard
-  let focusWheelLock = false;
-  focusView.addEventListener('wheel',(e) => {
-    e.preventDefault();
-    if (focusWheelLock || transitionBusy) return;
-    focusWheelLock = true;
-    stepFocus(e.deltaY > 0 ? 1 : -1);
-    setTimeout(() => {focusWheelLock=false;},650);
-  },{passive:false});
-
-  window.addEventListener('keydown',(e) => {
-    if (focusView.classList.contains('is-visible')) {
-      if (e.key === 'Escape') closeFocus();
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') stepFocus(1);
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') stepFocus(-1);
+    if (view === "detail") {
+      if (event.key === "ArrowLeft") switchProject(-1);
+      else if (event.key === "ArrowRight") switchProject(1);
+      else if (event.key === "ArrowUp") gallery?.scrollDetail(-160);
+      else if (event.key === "ArrowDown") gallery?.scrollDetail(160);
       return;
     }
-    if (e.key === 'Escape' && aboutView.classList.contains('is-visible')) closeAbout();
-  });
-
-  indexButton.addEventListener('click',() => {
-    if (aboutView.classList.contains('is-visible')) closeAbout();
-    else showIndex();
-  });
-  homeButton.addEventListener('click',() => {
-    if (focusView.classList.contains('is-visible')) closeFocus();
-    else if (aboutView.classList.contains('is-visible')) closeAbout();
-    else showIndex();
-  });
-  backButton.addEventListener('click',() => showIndex());
-  aboutButton.addEventListener('click',openAbout);
-  aboutClose.addEventListener('click',closeAbout);
-  focusClose.addEventListener('click',closeFocus);
-
-  window.addEventListener('wheel',onWheel,{passive:false});
-  window.addEventListener('resize',() => { measureIndex(); measureArchive(); scheduleIndexSnap(80); });
-  window.addEventListener('popstate',() => {
-    const id = location.hash.replace('#','');
-    if (id && projects.some((p)=>p.id===id)) {
-      const project = projects.find((p)=>p.id===id);
-      populateProject(project);
-      indexView.classList.add('is-hidden');
-      projectView.classList.add('is-visible');
-      setNav('');
-      prepareProjectFixedEntrance();
-      requestAnimationFrame(() => { revealArchiveCards(80); playProjectFixedEntrance(); measureArchive(); setTimeout(startArchivePreviewScroll,200); });
-    } else {
-      projectView.classList.remove('is-visible');
-      indexView.classList.remove('is-hidden');
-      setNav('index');
+    if (view === "work") {
+      if (event.key === "ArrowLeft") gallery?.previous?.();
+      else if (event.key === "ArrowRight") gallery?.next?.();
+      else if (event.key === "Enter" && currentProject) openRing(currentProject.id);
+    } else if (view === "ring") {
+      if (event.key === "ArrowLeft") gallery?.previous?.();
+      else if (event.key === "ArrowRight") gallery?.next?.();
+      else if (event.key === "Enter" && currentProject) openProject(currentProject.id);
     }
   });
+}
 
+function tickLoading(now) {
+  const elapsed = now - loadingStart;
+  const progress = Math.min(96, Math.round((1 - Math.exp(-elapsed / 760)) * 100));
+  elements.loadingCount.textContent = String(progress).padStart(3, "0");
+  if (document.body.classList.contains("is-loading")) loadingFrame = requestAnimationFrame(tickLoading);
+}
 
-  // ---------------------------------------------------------------------------
-  // Pointer-edge autopan
-  // ---------------------------------------------------------------------------
-  window.addEventListener('pointermove', (e) => {
-    pointerX = e.clientX;
-    pointerY = e.clientY;
-    pointerInside = true;
-  }, {passive:true});
-  document.documentElement.addEventListener('mouseleave', () => {
-    pointerInside = false;
-    if (edgeIndexActive) scheduleIndexSnap(120);
-    if (edgeArchiveActive) scheduleArchiveSnap(140);
-    edgeIndexActive = false;
-    edgeArchiveActive = false;
-  });
+function finishLoading() {
+  cancelAnimationFrame(loadingFrame);
+  elements.loadingCount.textContent = "100";
+  window.setTimeout(() => document.body.classList.remove("is-loading"), reducedMotion ? 0 : 180);
+}
 
-  function edgeStrength(position, size, zoneRatio = .16) {
-    const zone = size * zoneRatio;
-    if (position < zone) return -Math.pow(clamp((zone - position) / zone, 0, 1), 1.7);
-    if (position > size - zone) return Math.pow(clamp((position - (size - zone)) / zone, 0, 1), 1.7);
-    return 0;
+function showFallback(error) {
+  console.error(error);
+  elements.fallback.hidden = false;
+  elements.canvas.hidden = true;
+  finishLoading();
+  openIndex({ replaceRoute: true });
+}
+
+async function boot() {
+  await galleryModulePromise;
+  if (!Gallery3D) {
+    showFallback(galleryModuleError || new Error("The Three.js gallery could not be loaded."));
+    return;
+  }
+  if (!allProjects.length) {
+    showFallback(new Error("No projects were found."));
+    return;
   }
 
-  function runEdgeAutopan() {
-    const desktop = window.innerWidth > 850;
-    let homeActiveNow = false;
-    let archiveActiveNow = false;
-
-    if (desktop && pointerInside && !transitionBusy && !focusView.classList.contains('is-visible')) {
-      if (!indexView.classList.contains('is-hidden') && !aboutView.classList.contains('is-visible')) {
-        const forceX = edgeStrength(pointerX, window.innerWidth, .15);
-        if (Math.abs(forceX) > .015) {
-          homeActiveNow = true;
-          clearTimeout(indexSnapTimer);
-          clearIndexHover();
-          // left edge -> earlier projects; right edge -> later projects
-          targetX = clamp(targetX - forceX * 2.15, minIndexX, maxIndexX);
-          indexMotionEnergy = Math.min(1, indexMotionEnergy + Math.abs(forceX) * .035);
-        }
-      } else if (projectView.classList.contains('is-visible')) {
-        const forceY = edgeStrength(pointerY, window.innerHeight, .17);
-        if (Math.abs(forceY) > .015) {
-          archiveActiveNow = true;
-          if (autoScrollFrame) cancelAutoScroll();
-          clearTimeout(archiveSnapTimer);
-          ++archiveScrollAnimToken;
-          archiveProgrammatic = false;
-          const next = clamp(projectScroll.scrollTop + forceY * 2.1, 0, archiveMetrics.maxScroll);
-          if (Math.abs(next - projectScroll.scrollTop) > .01) {
-            projectScroll.scrollTop = next;
-            requestArchiveMotion();
-          }
-        }
-      }
-    }
-
-    if (edgeIndexActive && !homeActiveNow) scheduleIndexSnap(130);
-    if (edgeArchiveActive && !archiveActiveNow) scheduleArchiveSnap(150);
-    edgeIndexActive = homeActiveNow;
-    edgeArchiveActive = archiveActiveNow;
-    requestAnimationFrame(runEdgeAutopan);
-  }
-  requestAnimationFrame(runEdgeAutopan);
-
-  // ---------------------------------------------------------------------------
-  // Utilities
-  // ---------------------------------------------------------------------------
-  function safePushState(state, url) {
-    try { history.pushState(state, '', url); } catch (_) { if (String(url).startsWith('#')) location.hash = String(url).slice(1); }
-  }
-  function clamp(v,min,max){ return Math.max(min,Math.min(max,v)); }
-  function easeInOutCubic(t){ return t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2; }
-  function easeOutCubic(t){ return 1-Math.pow(1-t,3); }
-  function nextFrame(){ return new Promise((resolve)=>requestAnimationFrame(resolve)); }
-  function escapeHTML(value='') {
-    return String(value).replace(/[&<>'"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
-  }
-  function containRect(box, ratio) {
-    let width = box.width;
-    let height = width / ratio;
-    if (height > box.height) { height = box.height; width = height * ratio; }
-    return { left:box.left+(box.width-width)/2, top:box.top+(box.height-height)/2, width, height };
-  }
-
+  requestAnimationFrame(tickLoading);
+  renderFilters();
+  renderAccessibleProjects();
   renderIndex();
-  animateIndex();
+  updateActiveCopy(currentProject, 0, visibleProjects.length, true);
+  bindInterface();
 
-  const initialId = location.hash.replace('#','');
-  if (initialId && projects.some((p)=>p.id===initialId)) {
-    const project = projects.find((p)=>p.id===initialId);
-    populateProject(project);
-    indexView.classList.add('is-hidden');
-    projectView.classList.add('is-visible');
-    projectView.setAttribute('aria-hidden','false');
-    setNav('');
-    prepareProjectFixedEntrance();
-    requestAnimationFrame(() => { revealArchiveCards(80); playProjectFixedEntrance(); measureArchive(); setTimeout(startArchivePreviewScroll,500); });
+  try {
+    let ready = false;
+    gallery = new Gallery3D({
+      canvas: elements.canvas,
+      projects: visibleProjects,
+      onActiveChange: normalizeActiveChange,
+      onSelect: (projectOrId) => openRing(typeof projectOrId === "string" ? projectOrId : projectOrId?.id),
+      onRingChange: handleRingChange,
+      onRingClose: handleEngineRingClose,
+      onDetailProjectChange: handleDetailProjectChange,
+      onDetailMediaChange: updateDetailMedia,
+      onReady: () => {
+        ready = true;
+        finishLoading();
+      },
+      onError: showFallback
+    });
+    cancelAnimationFrame(detailMotionFrame);
+    detailMotionFrame = requestAnimationFrame(syncDetailCardMotion);
+    if (new URLSearchParams(location.search).has("qa")) {
+      const publishQAState = () => {
+        const rect = elements.canvas.getBoundingClientRect();
+        elements.canvas.dataset.qaState = JSON.stringify({
+          mode: gallery.mode,
+          ringMix: gallery.ringMix,
+          ringTarget: gallery.ringTarget,
+          ringEntryOffsetX: gallery.ringEntryOffsetX,
+          transitionOffsetX: gallery.continuumMesh?.material.uniforms.uTransitionOffsetX.value,
+          viewWidth: gallery.viewWidth,
+          viewHeight: gallery.viewHeight,
+          canvas: [elements.canvas.clientWidth, elements.canvas.clientHeight],
+          tests: {
+            top: gallery._isRingBand({ x: rect.width * 0.5, y: 105 }),
+            left: gallery._isRingBand({ x: 320, y: rect.height * 0.5 }),
+            hole: gallery._isRingBand({ x: rect.width * 0.5, y: rect.height * 0.5 }),
+            bottom: gallery._isRingBand({ x: rect.width * 0.5, y: rect.height - 70 })
+          }
+        });
+      };
+      publishQAState();
+      window.setInterval(publishQAState, 180);
+      elements.canvas.addEventListener("pointerup", (event) => {
+        const rect = elements.canvas.getBoundingClientRect();
+        const point = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+        elements.canvas.dataset.qaPointer = JSON.stringify({
+          client: [event.clientX, event.clientY],
+          point,
+          ringBand: gallery._isRingBand(point),
+          mode: gallery.mode
+        });
+      }, true);
+    }
+    route();
+    await wait(4200);
+    if (!ready && document.body.classList.contains("is-loading")) finishLoading();
+  } catch (error) {
+    showFallback(error);
   }
-})();
+}
+
+boot();

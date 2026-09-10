@@ -1,297 +1,109 @@
-# FEATURES.md
+# Interaction System
 
-## Purpose
+## Archive scope
 
-This document defines the current interaction system and feature priorities for the final course archive.
+The site is a single MSCDP project archive rather than a Computational Design Workflows course microsite. It currently contains eleven projects:
 
-The website contains seven digital objects but is designed as one continuous interactive experience.
+- Computational Design Workflows — 07
+- Mapping Systems — 04
 
-## 1. Horizontal Project Index
+Every public view is generated from `window.PROJECTS` in `js/projects.js`.
 
-**Status:** Implemented.
+## Continuous Three.js state system
 
-The homepage presents all seven projects on one horizontal rail. Users can navigate with mouse wheel, trackpad, pointer drag, or cursor-edge autopan.
-
-Vertical wheel movement is converted into horizontal navigation. The rail uses inertia rather than following input at a strict 1:1 ratio.
-
-## 2. Automatic Homepage Calibration
-
-**Status:** Implemented.
-
-After wheel movement, dragging, or cursor-edge navigation stops, the system calculates which project title is closest to the center of the viewport and smoothly aligns it with screen center.
-
-Calibration should never interrupt an active gesture.
-
-## 3. Center-Based Homepage Scaling
-
-**Status:** Implemented.
-
-Every homepage title has a dynamic scale based on its distance from screen center.
-
-The scale is composed from:
+The main experience is one persistent Three.js scene. The same set of subdivided project meshes moves through four states:
 
 ```text
-base scale
-+ center proximity
-+ scrolling motion boost
-+ hover boost
+loading stack → scrolling ribbon → Info ring → project detail
 ```
 
-## 4. Homepage Hover Expansion
+Transitions interpolate geometry, position, scale, curvature, and material values. Views do not replace one card system with another or hide a content swap behind a black frame.
 
-**Status:** Implemented.
+### Loading to ribbon
 
-Hovering over a project:
+The archive begins as a small stepped stack on a black stage. The existing meshes then enlarge and unfold into the horizontal ribbon.
 
-- enlarges the title
-- keeps the title centered in its own position
-- pushes neighboring projects outward
-- reveals two project preview images
-- reveals a small “View Project” label
+### Ribbon motion
 
-Current preview size:
+Wheel, trackpad, pointer drag, touch drag, and keyboard input drive a spring-based position model. Velocity affects curvature and twist. Releasing input produces inertia, overshoot, damping, and a final snap to the nearest project.
 
-```css
-width: clamp(150px, 13vw, 250px);
+### Image and video textures
+
+Project covers are GPU textures. The Relational cover is a local looping MP4 rendered with `VideoTexture`; its playback clock is independent of ribbon position, so scrolling never recreates, seeks, or pauses the video. Animated-image textures are also refreshed without rebuilding their meshes.
+
+### Info black-hole ring
+
+Selecting Info bends the live ribbon into an elliptical torus with a true negative-space center. The project textures remain scrollable around the ring. Info copy enters after the geometry begins to settle, using an upward reveal.
+
+### Small card to large detail card
+
+Opening a project expands the selected mesh directly from the ribbon into the large landscape card. The light base, right-side media field, rounded edge, and adjacent project cards remain part of the WebGL composition during the transition.
+
+### Detail media physics
+
+Project media scrolls vertically inside the right side of the large card. Scroll velocity bends and stretches the subdivided media meshes; damping returns them to a flat resting state. The left project copy remains readable while the media archive moves independently.
+
+### Large-card switching
+
+Large cards can be dragged horizontally. Neighboring cards follow the gesture and remain visible. Release velocity determines whether the card returns or commits to the adjacent project; spring integration supplies overshoot and recovery. Previous and Next controls use the same continuous transition.
+
+### Global water displacement
+
+The Three.js scene first renders to a `WebGLRenderTarget`. A full-screen post-process shader then displaces the completed image with pointer-centered, propagating waves. This means project media, black stage, light card, and WebGL card edges share one water-ripple field.
+
+### Local button depth
+
+Navigation, links, filters, and circular controls track the pointer within their own bounds. A local highlight, inset shadow, and text displacement create convex hover and concave pressed states. The effect follows the pointer instead of tilting the entire button as one rigid plane.
+
+## Archive navigation
+
+The primary hierarchy is intentionally small:
+
+```text
+Work  → spatial browsing and course filters
+Info  → archive statement inside the live image ring
+Index → low-motion list of every project
 ```
 
-Neighbor displacement should be large enough that the preview images have visible breathing room around the active title.
+Hash routes preserve direct entry:
 
-## 5. Pointer-Edge Homepage Navigation
-
-**Status:** Implemented.
-
-The horizontal rail responds to pointer position. Approximately the outer 15% of the viewport acts as an edge-navigation zone.
-
-Closer to the edge = stronger navigation force. Movement remains intentionally slow. When the cursor exits the edge zone, homepage snapping resumes.
-
-## 6. Project Page Entrance
-
-**Status:** Implemented.
-
-Homepage → Project uses an overlapping crossfade / micro-zoom transition. The incoming page should already exist underneath the outgoing page before the outgoing page becomes invisible.
-
-This avoids white flashes, black pauses, and empty frames.
-
-Fixed typography enters from right to left in a staggered sequence:
-
-1. Back link
-2. Project number
-3. Project title
-4. Year
-5. Project kicker
-6. Archive instruction
-
-## 7. Fixed Project Identity Panel
-
-**Status:** Implemented.
-
-The left side of each project page remains fixed and provides stable project identity while the archive content moves independently.
-
-## 8. Counter-Moving Archive Columns
-
-**Status:** Implemented.
-
-The right project region contains an information column and an image column. The columns move in opposing vertical directions.
-
-Native scrolling acts as the master input, while JavaScript transforms the two columns into different trajectories.
-
-## 9. Automatic Project Preview Scroll
-
-**Status:** Implemented.
-
-When a project first opens, the archive briefly animates by itself:
-
-1. short delay
-2. travel through part of the archive
-3. slight reverse / settle motion
-4. automatic calibration
-5. control returns to user
-
-Any direct user input immediately cancels this animation.
-
-## 10. Archive Center Calibration
-
-**Status:** Implemented.
-
-After archive movement stops, the closest card to the visual center is identified. The project scroll position is then smoothly adjusted so that card becomes visually centered.
-
-Candidates include both text cards and image cards.
-
-## 11. Archive Proximity Scaling
-
-**Status:** Implemented.
-
-All archive elements scale dynamically based on proximity to viewport center, active scrolling energy, and hover state.
-
-When the archive is moving, all content receives a subtle enlargement. Cards closest to center become slightly larger. Hover adds another layer of emphasis.
-
-## 12. Slow Card Hover
-
-**Status:** Implemented.
-
-Project cards should not jump immediately to their hover scale.
-
-Each card stores a `hoverProgress` value from `0` to `1` and eases toward the target over multiple animation frames:
-
-```js
-hoverProgress +=
-  (hoverTarget - hoverProgress) * hoverSpeed;
+```text
+root          Work
+#info         Info ring
+#index        Project Index
+#project-id   Project detail
 ```
 
-This allows both enlargement and return to feel soft.
+Browser Back and Forward restore those states.
 
-## 13. Intrinsic Image Ratios
+## Course filters
 
-**Status:** Current direction.
+Work can be filtered to All, CDW, or Mapping without splitting the archive into separate websites. Counts and active position update from the project data. Filtering resets the physical ribbon around a valid project.
 
-Archive image width remains consistent, but image height follows the source media:
+## Project detail content
 
-```css
-width: 100%;
-height: auto;
-aspect-ratio: auto;
-object-fit: contain;
+Each project may define:
+
+```text
+id, number, course, courseName, title, fullTitle, kicker, year
+summary, statement, meta[], links[], images[]
 ```
 
-Avoid forced alternating aspect ratios.
+The left column renders the statement, methods, readings, limits, and links. The WebGL media viewport renders the image/video sequence on the right and reports its caption and current position to the accessible interface.
 
-## 14. Animated Media Support
+## Index and fallback
 
-**Status:** Supported in DOM views.
+Index groups projects by course and remains the direct, scan-friendly alternative to the spatial interface. Keyboard focus, explicit labels, visible focus states, and semantic buttons/links remain available. If WebGL is unavailable, Index becomes the primary route to each project’s live or source link.
 
-Project images may include PNG, JPG, GIF, and other browser-supported image formats.
+## Responsive behavior
 
-Animated GIFs work directly in homepage previews and project archives because those states use HTML `<img>` elements.
+The same Three.js state model remains active on small screens, with lower pixel density, reduced card count at the edges, a tighter ring, and a stacked detail composition. `prefers-reduced-motion` shortens transitions while preserving navigation and content.
 
-Animated media should be optimized before deployment to GitHub Pages.
+## Performance constraints
 
-## 15. Dataset Links
-
-**Status:** Supported.
-
-Metadata can contain links to external datasets.
-
-Example:
-
-```js
-[
-  "Dataset 01 — Heat Vulnerability",
-  "NYC Heat Vulnerability Index",
-  "https://..."
-]
-```
-
-Dataset cards should remain visually consistent with other information cards and open external resources in a new tab.
-
-## 16. Original Project Links
-
-**Status:** Implemented.
-
-Every project page includes an `Original Project` card linking to the original course exercise.
-
-URLs should be stored as plain strings rather than Markdown syntax:
-
-```js
-originalUrl: "https://example.com/project"
-```
-
-## 17. Pointer-Edge Project Navigation
-
-**Status:** Implemented.
-
-When viewing a project archive:
-
-- pointer near top → move toward earlier archive content
-- pointer near bottom → move toward later archive content
-
-The movement stops when the pointer returns to the central zone, then automatic snapping resumes.
-
-## 18. Focus Mode
-
-**Status:** Implemented.
-
-Clicking an archive image opens a fullscreen dark focus state containing the selected image, project name, image number, project medium, image caption, and close control.
-
-Users may browse images with mouse wheel or arrow keys.
-
-## 19. Focus Typography Animation
-
-**Status:** Implemented.
-
-Metadata enters from right to left with staggered timing rather than appearing simultaneously.
-
-The animation should begin after the image has clearly entered focus mode.
-
-## 20. WebGL Mesh Transition
-
-**Status:** Experimental / active.
-
-The selected image transition is rendered using a subdivided WebGL plane. The mesh allows both boundary deformation and internal pixel deformation.
-
-The shader uses deterministic deformation rather than random noise.
-
-Current refinement goals:
-
-- exact wave timing
-- crest amplitude
-- damping
-- relationship between image movement and deformation
-- transition performance across browsers
-
-If WebGL is unavailable, use a restrained DOM FLIP transition rather than a noisy SVG effect.
-
-## 21. Responsive Layout
-
-**Status:** Implemented at a basic level.
-
-Desktop is the primary designed experience.
-
-Below approximately 850px:
-
-- homepage becomes vertically scrollable
-- homepage preview images are removed
-- project identity becomes a top region
-- project archive moves below it
-- image cards become fluid-width
-- focus image becomes wider relative to viewport
-
-The mobile version prioritizes usability over reproducing every desktop interaction.
-
-## 22. Performance Priorities
-
-The final site should maintain:
-
-- GPU-friendly transforms
-- `requestAnimationFrame` for continuous motion
-- restrained layout reads
-- optimized GIF/image sizes
-- restrained blur/filter animation
-- no high-frequency displacement noise
-- no blocking transition phases
-
-Smoothness is more important than adding additional effects.
-
-## 23. Final Feature Priority
-
-### Priority 1
-
-- all seven projects load correctly
-- every original project link works
-- dataset links work
-- homepage navigation is reliable
-
-### Priority 2
-
-- smooth snapping
-- smooth card scaling
-- project archive does not clip borders
-- images preserve correct proportions
-
-### Priority 3
-
-- WebGL focus transition refinement
-- hover timing refinement
-- additional decorative motion
-
-The website should remain fully understandable even if the advanced WebGL effect fails.
+- Device pixel ratio is capped.
+- Geometry and materials are reused.
+- Video elements persist for the lifetime of their textures.
+- Detail media is prepared only for the active project and nearby cards.
+- Physics and shader uniforms update inside a single animation loop.
+- Resize updates the render target, cameras, and detail scissor rectangle together.

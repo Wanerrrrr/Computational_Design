@@ -1,237 +1,310 @@
 /*
-  PROJECT CONTENT
-  ------------------------------------------------------------
-  All text, image paths, and original project links live here.
-  To swap images only, replace files in assets/images/ while keeping
-  the same filenames. No HTML editing is required.
+  PROJECT ARCHIVE
+  Add or edit projects here; the interface, filters, index, and detail pages
+  are generated from this single list.
 */
 
 window.PROJECTS = [
   {
     id: "spatial-2d",
     number: "01",
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Spatial 2D",
     kicker: "2D Spatial Canvas",
     year: "2026",
-    statement: "I used p5.js to explore visual illusion: how a completely flat image can create a convincing sensation of depth, vibration, and spatial instability. The composition is built from repeated geometric units arranged in a strict grid, where contrast, spacing, alignment, and alternating patterns disrupt the viewer’s perception of a stable surface. Rather than constructing real three-dimensional space, I was interested in how the eye interprets repetition and high-contrast relationships as movement, recession, or distortion. The exercise treats perception itself as the spatial material of the canvas.",
+    summary: "A pair of rule-based p5.js studies that use repetition, contrast, and motion to make a flat canvas feel unstable, deep, and alive.",
+    statement: "I used p5.js to explore visual illusion: how a completely flat image can create a convincing sensation of depth, vibration, and spatial instability. Rather than constructing real three-dimensional space, the work treats perception itself as the spatial material of the canvas.",
     meta: [
-      [
-        "Study 01 — Visual Illusion",
-        "The first study uses repeated geometric units and high-contrast patterns to create an optical illusion. Changes in scale, spacing, and density make the flat surface appear to expand, contract, vibrate, or recede, turning visual perception itself into a spatial effect."
-      ],
-      [
-        "Study 02 — Animated Spatial Field",
-        "The second study introduces time and motion into a repeated 2D system. Animated elements continuously shift in size, position, and intensity, transforming a simple graphic pattern into a dynamic field that appears to pulse and move through depth."
-      ],
-      [
-        "Attempt",
-        "Use two different rule-based drawing systems to test how a flat canvas can suggest depth and spatial movement through perception rather than perspective."
-      ],
-      [
-        "Interaction",
-        "The compositions change continuously through animation. Their spatial effect also depends on viewing distance and sustained attention: repeated forms can appear to vibrate, shift, deepen, or flatten as the viewer looks across the canvas."
-      ],
-      [
-        "Tools",
-        "p5.js · JavaScript · HTML/CSS"
-      ],
-      [
-        "Reference",
-        "Op Art, optical illusion, generative drawing, and perceptual experiments using repetition, figure-ground contrast, rhythm, and scale."
-      ]
+      ["Study", "Visual illusion + animated spatial field"],
+      ["Interaction", "Continuous animation; the spatial effect changes with viewing distance and sustained attention."],
+      ["Tools", "p5.js · JavaScript · HTML/CSS"],
+      ["Reference", "Op Art, generative drawing, figure-ground contrast, rhythm, and scale."]
     ],
-  
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/Spatial_canvas.html",
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/Spatial_canvas.html" }
+    ],
     images: [
-      ["assets/images/spatial_2d/2d.png", "2D Spacial Canvas 1"],
-      ["assets/images/spatial_2d/2d2.gif", "2D Spacial Canvas 2"]
-
+      ["assets/images/spatial_2d/2d.png", "Geometric optical-illusion study"],
+      ["assets/images/spatial_2d/2d2.gif", "Animated spatial field"]
     ]
   },
   {
     id: "spatial-3d",
     number: "02",
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Spatial 3D",
     kicker: "3D Spatial Canvas",
     year: "2026",
-    statement: "For the 3D canvas, I moved from screen-space drawing to a navigable Three.js scene. The core geometry is built from three matching rectangular volumes aligned to the XY, YZ, and XZ planes and intersecting at a shared center. I then developed the composition through translucent, frosted-glass materials, lighting, camera perspective, and atmospheric depth. The goal was to understand how relatively simple geometry changes once material, illumination, and viewpoint become part of the design system.",
+    summary: "Intersecting volumes, translucent materials, and light turn a simple Three.js construction into a navigable atmospheric study.",
+    statement: "For the 3D canvas, I moved from screen-space drawing to a navigable Three.js scene. Three matching rectangular volumes meet along the XY, YZ, and XZ planes. Material, illumination, camera perspective, and atmospheric depth become part of the design system.",
     meta: [
-      [
-        "Study 01 — Geometric Composition",
-        "The first study constructs a spatial composition from three identical rectangular volumes oriented along different coordinate planes and intersecting at a shared center. The experiment focuses on proportion, orientation, overlap, perspective, and the changing relationship between objects as the viewer moves around the scene."
-      ],
-      [
-        "Study 02 — Material + Light",
-        "The second study keeps the geometric structure but transforms its appearance through translucent frosted-glass materials, lighting, reflection, and atmospheric effects. Instead of changing the form itself, the experiment tests how surface and illumination alter depth, weight, transparency, and spatial perception."
-      ],
-      [
-        "Attempt",
-        "Compare two approaches to constructing three-dimensional experience: first through geometric organization, and then through material and lighting conditions."
-      ],
-      [
-        "Interaction",
-        "Orbit controls allow the viewer to rotate around and inspect the composition from different viewpoints. Changing the camera angle reveals new overlaps, intersections, reflections, and relationships between the volumes."
-      ],
-      [
-        "Tools",
-        "Three.js · WebGL · JavaScript · OrbitControls"
-      ],
-      [
-        "Reference",
-        "Minimal geometric sculpture, translucent architectural materials, frosted glass, and digital studies of light, reflection, and atmospheric depth."
-      ]
+      ["Study", "Geometric composition + material and light"],
+      ["Interaction", "Orbit controls reveal changing overlaps, reflections, and intersections."],
+      ["Tools", "Three.js · WebGL · JavaScript · OrbitControls"],
+      ["Reference", "Minimal geometric sculpture, frosted glass, reflection, and atmospheric depth."]
     ],
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/Spatial_canvas.html",
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/Spatial_canvas.html" }
+    ],
     images: [
-      ["assets/images/spatial_3d/3d1_1.png", "3D Spacial Canvas 1"],
-      ["assets/images/spatial_3d/3d2_1.png", "3D Spacial Canvas 2"],
-      ["assets/images/spatial_3d/3d1_2.png", "3D Spacial Canvas 1"],
-      ["assets/images/spatial_3d/3d2_2.png", "3D Spacial Canvas 2"],
-      ["assets/images/spatial_3d/3d1_3.png", "3D Spacial Canvas 1"],
-      ["assets/images/spatial_3d/3d2_3.png", "3D Spacial Canvas 2"],
+      ["assets/images/spatial_3d/3d1_1.png", "Geometric composition, view one"],
+      ["assets/images/spatial_3d/3d2_1.png", "Frosted-glass material study"],
+      ["assets/images/spatial_3d/3d1_2.png", "Geometric composition, view two"],
+      ["assets/images/spatial_3d/3d2_2.png", "Material and lighting detail"],
+      ["assets/images/spatial_3d/3d1_3.png", "Geometric composition, view three"],
+      ["assets/images/spatial_3d/3d2_3.png", "Atmospheric spatial view"]
     ]
   },
   {
     id: "temporal",
     number: "03",
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Temporal",
     kicker: "Temporal Structure",
     year: "2026",
-    statement: "This D3.js exercise explores time through Pixar films. I organized a CSV of film titles, release years, and box-office values into a bubble-based temporal visualization, using release year as the chronological structure and revenue as a comparative measure. The project asks how a familiar cultural archive changes when it is read as data: individual films remain recognizable, but their relative scale and position reveal patterns that are difficult to see in a conventional list.",
+    summary: "A bubble-based D3.js timeline reads Pixar films through release chronology and comparative box-office scale.",
+    statement: "This D3.js exercise explores time through Pixar films. Release year forms the chronological structure and revenue supplies a comparative measure, allowing a familiar cultural archive to reveal patterns that are difficult to see in a conventional list.",
     meta: [
-      ["Attempt", "Translate a chronological dataset into a visual system that communicates both sequence and magnitude."],
-      ["Interaction", "Hover states reveal film-level information; labels keep individual titles identifiable while the bubbles support comparison."],
+      ["Study", "Chronology translated into a visual system of sequence and magnitude."],
+      ["Interaction", "Hover states reveal film-level information while labels preserve identity."],
       ["Tools", "D3.js · JavaScript · CSV"],
-      ["Dataset", "Pixar film titles, release years, and box-office performance."],
+      ["Dataset", "Pixar titles, release years, and box-office performance."]
     ],
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/pixar_timeline/index.html",
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/pixar_timeline/index.html" }
+    ],
     images: [
-      ["assets/images/temporal/1.png", "Overview"],
-      ["assets/images/temporal/2.png", "Film Details"],
-      ["assets/images/temporal/3.png", "Original Films"],
-      ["assets/images/temporal/4.png", "Sequels"],
+      ["assets/images/temporal/1.png", "Timeline overview"],
+      ["assets/images/temporal/2.png", "Film details"],
+      ["assets/images/temporal/3.png", "Original films"],
+      ["assets/images/temporal/4.png", "Sequels"]
     ]
   },
   {
     id: "relational",
     number: "04",
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Relational",
     kicker: "Relational Structure",
     year: "2026",
-    statement: "I used a force-directed network to represent relationships between characters from Pixar's Coco. Instead of treating the cast as an ordered list, the visualization makes connection itself the organizing principle. Character nodes are styled with skull-like imagery to connect the interface to the visual world of the film, while links remain attached as nodes are dragged. The result is both a data structure and a small interactive portrait of the story's social network.",
+    summary: "A draggable force-directed network makes the relationships among characters in Pixar’s Coco the organizing structure.",
+    statement: "Instead of treating the cast as an ordered list, this visualization makes connection itself the organizing principle. Character nodes borrow from the film’s decorative skull imagery while links remain attached as the network is rearranged.",
     meta: [
-      ["Attempt", "Use a node-link structure to make relationships, clusters, and central characters visible through spatial organization."],
-      ["Interaction", "Nodes can be dragged while the D3 force simulation continuously recalculates positions and preserves links."],
+      ["Study", "Relationships, clusters, and central characters through spatial organization."],
+      ["Interaction", "Nodes can be dragged while the force simulation continuously recalculates the network."],
       ["Tools", "D3.js · JavaScript · CSV"],
-      ["Dataset", "Coco characters as nodes and character-to-character relationships as edges."],
-      ["Reference", "Force-directed graphs and the decorative skull / Día de Muertos visual language associated with Coco."]
+      ["Dataset", "Coco characters as nodes and character relationships as edges."]
     ],
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/coco_character_network/index.html",
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/coco_character_network/index.html" }
+    ],
     images: [
-      ["assets/images/relational/relational.gif", "Dragged network state"],
       ["assets/images/relational/1.png", "Full relationship network"],
-      ["assets/images/relational/2.png", "Character node detail"],
-      ["assets/images/relational/3.png", "Character node detail"],
+      ["assets/images/relational/2.png", "Character-node detail"],
+      ["assets/images/relational/3.png", "Character-node detail"]
     ]
   },
   {
     id: "geospatial",
-  
     number: "05",
-  
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Geospatial",
-  
     kicker: "Geospatial Structure",
-  
     year: "2026",
-  
-    statement: "This Mapbox project examines heat vulnerability as a spatial condition across New York City. I mapped Heat Vulnerability Index values by ZIP Code and designed the interface so that the thematic data remains readable alongside the basemap. A ZIP Code search moves directly to a selected area, while broader map views shift toward neighborhood-scale context. The exercise became a study in how data classification, labeling, zoom level, and interface controls shape the way an urban issue is interpreted.",
-  
+    summary: "A navigable Mapbox choropleth examines New York City heat vulnerability from citywide patterns down to ZIP Code detail.",
+    statement: "This project maps Heat Vulnerability Index values by ZIP Code and keeps the thematic data readable alongside the basemap. Search and zoom connect a citywide view to neighborhood-scale context.",
     meta: [
-      [
-        "Attempt",
-        "Turn a citywide vulnerability dataset into a navigable thematic map that supports both overview and local inspection."
-      ],
-  
-      [
-        "Interaction",
-        "Pan / zoom, hover or selection states, and ZIP Code search with animated map navigation."
-      ],
-  
-      [
-        "Tools",
-        "Mapbox GL JS · GeoJSON · JavaScript"
-      ],
-  
-      [
-        "Dataset1",
-        "NYC Heat Vulnerability Index",
-        "https://data.cityofnewyork.us/Health/Heat-Vulnerability-Index-Rankings/4mhf-duep/about_data"
-      ],
-
-      [
-        "Dataset2",
-        "NYC ZIP Code Tabulation Areas",
-        "https://data.cityofnewyork.us/City-Government/ZIP-Code-Tabulation-Areas/35j5-n34v/about_data"
-      ],
-  
-      [
-        "Reference",
-        "Thematic choropleth mapping and public-facing urban data interfaces."
-      ]
+      ["Study", "A public-facing thematic map for overview and local inspection."],
+      ["Interaction", "Pan, zoom, selection, and ZIP Code search with animated navigation."],
+      ["Tools", "Mapbox GL JS · GeoJSON · JavaScript"],
+      ["Dataset", "NYC Heat Vulnerability Index + ZIP Code Tabulation Areas."]
     ],
-  
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/geospatial_structures/index.html",
-  
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/geospatial_structures/index.html" },
+      { label: "HVI data", url: "https://data.cityofnewyork.us/Health/Heat-Vulnerability-Index-Rankings/4mhf-duep/about_data" }
+    ],
     images: [
-      ["assets/images/geospatial/1.png", "Overview"],
-      ["assets/images/geospatial/2.png", "Detail"],
+      ["assets/images/geospatial/1.png", "Citywide heat-vulnerability map"],
+      ["assets/images/geospatial/2.png", "Area detail"],
       ["assets/images/geospatial/3.png", "ZIP Code search"],
-      ["assets/images/geospatial/4.png", "All high HVI areas"]
+      ["assets/images/geospatial/4.png", "High-HVI areas"]
     ]
   },
   {
     id: "engagement",
     number: "06",
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Engagement",
     kicker: "Engagement Component",
     year: "2026",
-    statement: "For the engagement exercise, I built a multi-step public poll around the NYC Open Streets program and connected it to Firebase. Rather than presenting participation as a single yes-or-no question, the interface moves from general support to more specific priorities: whether people want an Open Street in their neighborhood, when or what form it should take, and what a converted block should prioritize. The project explores how a lightweight interface can turn a planning topic into a structured exchange with users.",
+    summary: "A multi-step public poll turns the NYC Open Streets program into a short, structured exchange about neighborhood priorities.",
+    statement: "The interface moves from general support to specific preferences: where and when an Open Street should operate, what form it should take, and what a converted block should prioritize. Responses are stored through Firebase.",
     meta: [
-      ["Attempt", "Create an engagement tool that collects structured public preferences while keeping the interaction short and understandable."],
-      ["Interaction", "Multi-step poll, conditional progression, submission feedback, and live data storage through Firebase."],
+      ["Study", "Lightweight civic participation through a focused multi-step interaction."],
+      ["Interaction", "Conditional progression, submission feedback, and live data storage."],
       ["Tools", "Firebase · JavaScript · HTML/CSS"],
-      ["Dataset", "User-generated poll responses collected through the website."],
-      ["Questions", "Neighborhood support · preferred timing / format · priorities for a converted street block."]
+      ["Dataset", "User-generated poll responses collected through the website."]
     ],
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/open-streets-poll/index.html",
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/open-streets-poll/index.html" }
+    ],
     images: [
-      ["assets/images/engagment/1.png", "Overview & question1"],
-      ["assets/images/engagment/2.png", "Question 2"],
-      ["assets/images/engagment/3.png", "Question 3"],
-      ["assets/images/engagment/4.png", "Question 4"],
-      ["assets/images/engagment/5.png", "Question 5"]
+      ["assets/images/engagment/1.png", "Poll introduction"],
+      ["assets/images/engagment/2.png", "Survey question two"],
+      ["assets/images/engagment/3.png", "Survey question three"],
+      ["assets/images/engagment/4.png", "Survey question four"],
+      ["assets/images/engagment/5.png", "Survey completion state"]
     ]
   },
   {
     id: "agent",
     number: "07",
+    course: "cdw",
+    courseName: "Computational Design Workflows",
     title: "Agent",
     kicker: "Conversational Agent",
     year: "2026",
-    statement: "The agent exercise extends the Open Streets engagement project with a conversational interface powered by the OpenAI API. I treated the chatbot as a project-specific guide rather than a generic assistant: its role is to help a visitor understand the topic, ask questions in natural language, and move between information and participation without leaving the site. Building the agent also required thinking about prompt context, interface tone, backend communication, and how conversational output should fit within an existing design system.",
+    summary: "A project-specific conversational guide helps visitors understand NYC Open Streets and move between information and participation.",
+    statement: "The agent extends the Open Streets engagement project with a conversational interface powered by the OpenAI API. Its role is deliberately narrow: explain the topic, answer natural-language questions, and connect visitors to the surrounding project.",
     meta: [
-      ["Attempt", "Integrate a contextual chatbot into a web project and define a clear role for the agent within the larger user experience."],
-      ["Interaction", "Natural-language chat with multi-turn responses inside the webpage."],
+      ["Study", "A contextual agent with a defined role inside a larger experience."],
+      ["Interaction", "Natural-language chat with multi-turn responses."],
       ["Tools", "OpenAI API · JavaScript · Firebase / backend service"],
-      ["Design", "The chat UI prioritizes short exchanges, legibility, and continuity with the visual language of the project rather than imitating a standalone chat app."]
+      ["Design", "Short exchanges and visual continuity with the project rather than a generic chat app."]
     ],
-    originalUrl: "https://wanerrrrr.github.io/cdw-repo/open-streets-agent-final/site/index.html",
+    links: [
+      { label: "Open project", url: "https://wanerrrrr.github.io/cdw-repo/open-streets-agent-final/site/index.html" }
+    ],
     images: [
       ["assets/images/agent/1.png", "Agent interface"],
       ["assets/images/agent/2.png", "Conversation state"],
-      ["assets/images/agent/3.png", "Prompt / response flow"],
-      ["assets/images/agent/4.png", "Prompt / response flow"]
+      ["assets/images/agent/3.png", "Prompt and response flow"],
+      ["assets/images/agent/4.png", "Prompt and response flow"]
+    ]
+  },
+  {
+    id: "cooling-equity",
+    number: "08",
+    course: "mapping",
+    courseName: "Mapping Systems",
+    title: "NYC Cooling Equity",
+    fullTitle: "Heat Vulnerability and Cooling Equity in New York City",
+    kicker: "Spatial Data Analysis",
+    year: "2026",
+    summary: "NYC Parks spray showers are mapped against heat vulnerability to identify high-risk ZCTAs with limited mapped spray-shower provision.",
+    statement: "This study asks whether public cooling infrastructure aligns with the places most vulnerable to extreme heat. It combines Heat Vulnerability Index rankings with mapped spray showers, comparing their distribution without presenting the result as a per-capita measure.",
+    meta: [
+      ["Question", "Where do high heat vulnerability and limited spray-shower access overlap?"],
+      ["Method", "Spatial joins, ZCTA-level counts and density comparisons, distribution plots, and zero-resource shares."],
+      ["Reading", "Several high-risk ZCTAs show sparse or no mapped spray-shower provision."],
+      ["Limits", "HVI is relative; spray showers are one cooling resource; ZCTAs do not describe walking access. Population-normalized claims are intentionally excluded."],
+      ["Tools", "Python · GeoPandas · pandas · Matplotlib"]
+    ],
+    links: [
+      { label: "View source", url: "https://github.com/Wanerrrrr/cdp-mapping-systems/tree/main/content/Assignments/Assignment1_Heat_Vulnerability_and_Cooling_Equity_NYC_submission" }
+    ],
+    images: [
+      ["assets/images/mapping/cooling-equity/hero.png", "Cooling equity study overview"],
+      ["assets/images/mapping/cooling-equity/hvi-by-zcta.png", "Heat Vulnerability Index by ZCTA"],
+      ["assets/images/mapping/cooling-equity/spray-density.png", "Spray-shower density"],
+      ["assets/images/mapping/cooling-equity/hvi-distribution.png", "HVI distribution"],
+      ["assets/images/mapping/cooling-equity/density-boxplot.png", "Density comparison"],
+      ["assets/images/mapping/cooling-equity/zero-spray-share.png", "Share of ZCTAs with no mapped spray shower"]
+    ]
+  },
+  {
+    id: "network-distance",
+    number: "09",
+    course: "mapping",
+    courseName: "Mapping Systems",
+    title: "Walking Central Park",
+    fullTitle: "From The Met to Central Park Attractions",
+    kicker: "Pedestrian Network Analysis",
+    year: "2026",
+    summary: "Straight-line distance and shortest pedestrian routes from The Met to twelve Central Park attractions reveal the detours hidden by proximity.",
+    statement: "The project compares Euclidean distance with route distance on a pedestrian network. A destination can look nearby on a map while paths, entrances, and network geometry produce a meaningfully longer walk.",
+    meta: [
+      ["Question", "How different is apparent proximity from the distance a pedestrian must actually travel?"],
+      ["Method", "Twelve attraction points, an OpenStreetMap walking network, shortest paths, and detour ratios."],
+      ["Reading", "Network routes reveal which destinations require disproportionate detours despite short straight-line distances."],
+      ["Limits", "Locations are snapped to approximate network nodes; the OSM snapshot does not measure slope, comfort, safety, or accessibility."],
+      ["Tools", "Python · OSMnx · NetworkX · GeoPandas"]
+    ],
+    links: [
+      { label: "View source", url: "https://github.com/Wanerrrrr/cdp-mapping-systems/tree/main/content/Assignments/Assignment3_Network" }
+    ],
+    images: [
+      ["assets/images/mapping/network-distance/hero.png", "Walking-distance study overview"],
+      ["assets/images/mapping/network-distance/pedestrian-network.png", "Central Park pedestrian network"],
+      ["assets/images/mapping/network-distance/euclidean-connections.png", "Straight-line connections"],
+      ["assets/images/mapping/network-distance/shortest-routes.png", "Shortest pedestrian routes"],
+      ["assets/images/mapping/network-distance/distance-comparison.png", "Euclidean and network-distance comparison"],
+      ["assets/images/mapping/network-distance/detour-ratio.png", "Detour ratio by destination"]
+    ]
+  },
+  {
+    id: "geography-web",
+    number: "10",
+    course: "mapping",
+    courseName: "Mapping Systems",
+    title: "The Geography of a Website",
+    fullTitle: "Mapping the Server Infrastructure Behind McDonald’s U.S. Website",
+    kicker: "Interactive Web Infrastructure Map",
+    year: "2026",
+    summary: "A HAR-derived map makes the otherwise invisible geography of fifteen servers contacted by McDonald’s U.S. website visible.",
+    statement: "Network requests captured in a HAR file are translated into approximate server locations. The map reframes a familiar website as distributed infrastructure, including first- and third-party services rather than physical restaurant or office locations.",
+    meta: [
+      ["Question", "What geographic network sits behind a single visit to a familiar website?"],
+      ["Method", "HAR request extraction, IP lookup, approximate geolocation, and a Mapbox interface."],
+      ["Reading", "The fifteen mapped requests concentrate in a few U.S. infrastructure regions."],
+      ["Limits", "IP geolocation is approximate; it identifies network infrastructure, not company offices. Provider labels may be incomplete."],
+      ["Tools", "HAR · IP geolocation · GeoJSON · Mapbox GL JS"]
+    ],
+    links: [
+      { label: "Open live map", url: "https://wanerrrrr.github.io/mapping_system_web_mapping/" },
+      { label: "View submission", url: "https://github.com/Wanerrrrr/cdp-mapping-systems/tree/main/content/Assignments/Assignment4_Web_mapping1" }
+    ],
+    images: [
+      ["assets/images/mapping/geography-web/hero.png", "Server-location popup in the interactive map"],
+      ["assets/images/mapping/geography-web/us-map.png", "Server locations across the United States"],
+      ["assets/images/mapping/geography-web/ny-region.png", "Server locations around the New York region"]
+    ]
+  },
+  {
+    id: "open-streets",
+    number: "11",
+    course: "mapping",
+    courseName: "Mapping Systems",
+    title: "NYC Open Streets",
+    fullTitle: "When and Where Are NYC Open Streets Accessible?",
+    kicker: "Capstone · Urban Accessibility",
+    year: "2026",
+    summary: "Approved schedules, spatial distribution, and an approximate 800-meter walking threshold explore potential proximity to NYC Open Streets across time and space.",
+    statement: "This capstone joins temporal availability with spatial access. It studies approved operating hours, where sites concentrate, and which parts of the city fall within an approximate ten-minute walk, then extends the analysis through a live explorer.",
+    meta: [
+      ["Question", "How does Open Streets access change across time, space, and boroughs?"],
+      ["Method", "Schedule parsing, site distribution, approved-hours mapping, 800 m buffers, and borough-level comparison."],
+      ["Reading", "Availability is uneven in both operating time and geographic coverage."],
+      ["Limits", "Approved schedules do not guarantee actual operation; an 800 m buffer is not a pedestrian-network isochrone; static analysis and live data are distinct snapshots."],
+      ["Tools", "Python · GeoPandas · Leaflet · Turf.js · Carto · NYC Open Data"]
+    ],
+    links: [
+      { label: "Open local explorer", url: "projects/open-streets/index.html" },
+      { label: "View source", url: "https://github.com/Wanerrrrr/cdp-mapping-systems/tree/main/content/Assignments/Final_Project_NYC_Open_Streets_2026_Live_Project" }
+    ],
+    images: [
+      ["assets/images/mapping/open-streets/hero.png", "NYC Open Streets capstone overview"],
+      ["assets/images/mapping/open-streets/time-availability.png", "Temporal availability"],
+      ["assets/images/mapping/open-streets/approved-hours-map.png", "Approved operating hours"],
+      ["assets/images/mapping/open-streets/site-concentration.png", "Open Streets site concentration"],
+      ["assets/images/mapping/open-streets/ten-minute-access.png", "Approximate ten-minute walking access"],
+      ["assets/images/mapping/open-streets/access-by-borough.png", "Access by borough"]
     ]
   }
 ];
