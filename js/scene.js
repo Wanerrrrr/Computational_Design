@@ -820,6 +820,7 @@ export class Gallery3D {
         uMotion: this.sharedUniforms.motion,
         uOpacity: { value: 0 },
         uRadius: { value: 0.055 },
+        uAspect: { value: 1 },
         uInward: { value: 0 }
       },
       vertexShader: /* glsl */`
@@ -830,16 +831,16 @@ export class Gallery3D {
         void main() {
           vUv = uv;
           vec3 p = position;
-          float waist = sin(uv.y * 3.14159265);
-          p.x *= 1.0 - waist * uInward;
-          float edge = pow(abs(uv.x - 0.5) * 2.0, 2.0);
-          p.z += sin(uv.y * 13.0 + uTime * 1.1) * edge * uMotion * 0.035;
+          float edgeY = (uv.y - 0.5) * 2.0;
+          float singleArc = sqrt(max(0.0, 1.0 - edgeY * edgeY));
+          p.x *= 1.0 - singleArc * uInward;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
         }
       `,
       fragmentShader: /* glsl */`
         uniform float uOpacity;
         uniform float uRadius;
+        uniform float uAspect;
         varying vec2 vUv;
 
         float roundedBoxSDF(vec2 p, vec2 b, float r) {
@@ -848,8 +849,16 @@ export class Gallery3D {
         }
 
         void main() {
-          float distanceToEdge = roundedBoxSDF(vUv - 0.5, vec2(0.5), uRadius);
-          float alpha = 1.0 - smoothstep(-0.004, 0.004, distanceToEdge);
+          // Work in width-normalized screen units. Scaling Y by 1/aspect
+          // keeps the horizontal and vertical corner radius identical even
+          // though the paper plane itself is a wide, non-uniformly scaled
+          // rectangle.
+          float safeAspect = max(uAspect, 0.001);
+          vec2 roundedPoint = (vUv - 0.5) * vec2(1.0, 1.0 / safeAspect);
+          vec2 roundedBounds = vec2(0.5, 0.5 / safeAspect);
+          float distanceToEdge = roundedBoxSDF(roundedPoint, roundedBounds, uRadius);
+          float edgeAA = max(fwidth(distanceToEdge) * 0.58, 0.00025);
+          float alpha = 1.0 - smoothstep(-edgeAA, edgeAA, distanceToEdge);
           vec3 paper = vec3(0.938, 0.935, 0.912);
           gl_FragColor = vec4(paper, alpha * uOpacity);
         }
@@ -886,7 +895,8 @@ export class Gallery3D {
         uPointerEnergy: { value: 0 },
         uTrail: { value: this.rippleTrail },
         uResolution: { value: new THREE.Vector2(1, 1) },
-        uStrength: { value: this.reducedMotion ? 0 : 1 }
+        uStrength: { value: this.reducedMotion ? 0 : 1 },
+        uStableDetailEdges: { value: 0 }
       },
       vertexShader: /* glsl */`
         varying vec2 vUv;
@@ -901,6 +911,7 @@ export class Gallery3D {
         uniform float uMotion;
         uniform float uPointerEnergy;
         uniform float uStrength;
+        uniform float uStableDetailEdges;
         uniform vec2 uPointer;
         uniform vec2 uResolution;
         uniform vec3 uTrail[12];
@@ -933,9 +944,16 @@ export class Gallery3D {
             + vec2(pointerRing, pointerRing * 0.7) * 0.00055 * uStrength
             + trailDisplacement * 0.0038 * uStrength;
 
-          // Preserve alpha while displacing it: transparent boundaries and
-          // the large paper edge ripple together with the imagery.
+          // Preserve the original displaced-alpha behavior everywhere. In
+          // detail view only, the separate outer-silhouette system can select
+          // an undistorted alpha boundary without altering media colour or
+          // the media track's own animation.
           vec4 center = texture2D(tScene, vUv + displacement);
+          center.a = mix(
+            center.a,
+            texture2D(tScene, vUv).a,
+            uStableDetailEdges
+          );
           float chroma = min(abs(uMotion), 1.0) * 0.00075 * uStrength;
           float red = texture2D(tScene, vUv + displacement + vec2(chroma, 0.0)).r;
           float blue = texture2D(tScene, vUv + displacement - vec2(chroma, 0.0)).b;
@@ -977,6 +995,7 @@ export class Gallery3D {
         uRibbonOffsetX: { value: 0 },
         uSideAttach: { value: 0 },
         uSideSign: { value: 0 },
+        uDepthShade: { value: 0 },
         uRing: { value: 0 },
         uRingAngle: { value: 0 },
         uRingSpan: { value: 0.6 },
@@ -985,9 +1004,11 @@ export class Gallery3D {
         uRingFlowVelocity: { value: 0 },
         uClipEnabled: { value: 0 },
         uClipRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+        uCornerRadius: { value: 0.037 },
         uMobile: { value: 0 },
         uIsMedia: { value: 0 },
         uInward: { value: 0 },
+        uInterlock: { value: 0 },
         uAnimated: { value: 0 }
       },
       vertexShader: /* glsl */`
@@ -1014,6 +1035,8 @@ export class Gallery3D {
         uniform float uRingFlowVelocity;
         uniform vec2 uHoverPoint;
         uniform float uInward;
+        uniform float uInterlock;
+        uniform float uIsMedia;
         varying vec2 vUv;
         varying vec3 vWorldPosition;
         varying float vRibbonShade;
@@ -1031,8 +1054,18 @@ export class Gallery3D {
           vUv = uv;
           vRibbonShade = 1.0;
           vec3 p = position;
-          float verticalWaist = sin(uv.y * 3.14159265);
-          p.x *= 1.0 - verticalWaist * uInward;
+          float edgeY = (uv.y - 0.5) * 2.0;
+          // Media keeps the exact original waist deformation. The separate
+          // outer silhouette uses a single circle-derived arc instead.
+          float mediaWaist = sin(uv.y * 3.14159265);
+          float singleArc = sqrt(max(0.0, 1.0 - edgeY * edgeY));
+          float inwardProfile = mix(singleArc, mediaWaist, uIsMedia);
+          p.x *= 1.0 - inwardProfile * uInward;
+          float leftNeighbour = step(0.0, -uSideSign);
+          float innerCoordinate = mix(1.0 - uv.x, uv.x, leftNeighbour);
+          float innerEdgeMask = smoothstep(0.70, 1.0, innerCoordinate);
+          p.x += -uSideSign * singleArc * innerEdgeMask
+            * uInterlock * (1.0 - uIsMedia);
           vec2 hoverDelta = uv - uHoverPoint;
           float convex = exp(-dot(hoverDelta, hoverDelta) * 17.0) * uHover;
           float edge = pow(abs(uv.x - 0.5) * 2.0, 2.0);
@@ -1043,8 +1076,11 @@ export class Gallery3D {
           float ribbonMicroDepth = convex * 0.12 + movingWave + water;
           p.z += ribbonMicroDepth;
           p.z += edge * uCurve * 0.13;
-          p.x += sin(uv.y * 4.0 - uTime * 0.5) * uMotion * 0.012;
-          p.y += sin(uv.x * 7.0 + uTime * 0.6) * uDetail * uMotion * 0.018;
+          // This is the original media/ribbon motion. Detail shells suppress
+          // it so their outer boundary is governed only by uInterlock.
+          float originalMotionLayer = max(1.0 - uDetail, uIsMedia);
+          p.x += sin(uv.y * 4.0 - uTime * 0.5)
+            * uMotion * 0.012 * originalMotionLayer;
           // Project preview: the original subdivided image behaves like an
           // elastic membrane. Its centre is pushed to the inner rim while the
           // outer pixels remain at the outside edge of one thick ellipse.
@@ -1149,10 +1185,13 @@ export class Gallery3D {
         uniform float uRingFlowVelocity;
         uniform float uRibbonSurface;
         uniform float uSideAttach;
+        uniform float uSideSign;
+        uniform float uDepthShade;
         uniform float uIsMedia;
         uniform float uMobile;
         uniform float uClipEnabled;
         uniform vec4 uClipRect;
+        uniform float uCornerRadius;
         varying vec2 vUv;
         varying vec3 vWorldPosition;
         varying float vRibbonShade;
@@ -1211,8 +1250,15 @@ export class Gallery3D {
           float mobileImageSide = 1.0 - smoothstep(0.475, 0.49, vUv.y);
           vec3 mobileDetail = mix(vec3(0.938, 0.935, 0.912), mobileWell, mobileImageSide);
           vec3 detailColor = mix(desktopDetail, mobileDetail, uMobile);
-          float distanceToEdge = roundedBoxSDF(vUv - 0.5, vec2(0.5), 0.037);
-          float edgeAlpha = 1.0 - smoothstep(-0.006, 0.006, distanceToEdge);
+          // uCornerRadius is measured against card width. Correct the UV's Y
+          // axis by the rendered aspect ratio so the SDF produces a true
+          // circular quarter-arc instead of an ellipse after scaling.
+          float safePlaneAspect = max(uPlaneAspect, 0.001);
+          vec2 roundedPoint = (vUv - 0.5) * vec2(1.0, 1.0 / safePlaneAspect);
+          vec2 roundedBounds = vec2(0.5, 0.5 / safePlaneAspect);
+          float distanceToEdge = roundedBoxSDF(roundedPoint, roundedBounds, uCornerRadius);
+          float edgeAA = max(fwidth(distanceToEdge) * 0.58, 0.00025);
+          float edgeAlpha = 1.0 - smoothstep(-edgeAA, edgeAA, distanceToEdge);
           float sourceRadius = length((vUv - 0.5) * vec2(1.0, 1.08));
           float holeMask = smoothstep(0.045, 0.095, sourceRadius);
           float radialHighlight = exp(-pow((sourceRadius - 0.20) * 9.0, 2.0));
@@ -1229,6 +1275,14 @@ export class Gallery3D {
             label.rgb,
             label.a * (1.0 - uDetail) * (1.0 - uIsMedia) * (1.0 - uProjectRing)
           );
+          float innerSide = mix(
+            1.0 - vUv.x,
+            vUv.x,
+            step(0.0, -uSideSign)
+          );
+          float depthShadow = 1.0 - uDepthShade
+            * (0.62 + 0.38 * smoothstep(0.34, 1.0, innerSide));
+          image.rgb *= depthShadow;
           image.rgb *= vRibbonShade;
           image.rgb *= 1.0 + uHover * 0.045;
           float finalAlpha = image.a * edgeAlpha * uOpacity;
@@ -1808,8 +1862,8 @@ export class Gallery3D {
   _detailPanelWorld() {
     const canvasRect = this.canvas.getBoundingClientRect();
     const compact = canvasRect.width <= 760;
-    const widthPixels = compact ? canvasRect.width - 14 : Math.min(canvasRect.width * 0.94, 1600);
-    const heightPixels = compact ? canvasRect.height - 14 : Math.min(canvasRect.height * 0.78, 900);
+    const widthPixels = compact ? canvasRect.width - 14 : Math.min(canvasRect.width * 0.96, 1720);
+    const heightPixels = compact ? canvasRect.height - 14 : Math.min(canvasRect.height * 0.82, 940);
     const left = canvasRect.left + (canvasRect.width - widthPixels) * 0.5;
     const top = canvasRect.top + (canvasRect.height - heightPixels) * 0.5;
     const centerX = ((left - canvasRect.left + widthPixels * 0.5) / Math.max(canvasRect.width, 1) - 0.5) * this.viewWidth;
@@ -1823,23 +1877,72 @@ export class Gallery3D {
     };
   }
 
+  _detailPanelStep(panel = this._detailPanelWorld()) {
+    const sideScale = 0.82;
+    const gap = panel.width * 0.018;
+    return panel.width * 0.5 + panel.width * sideScale * 0.5 + gap;
+  }
+
+  _detailCardScale(trackRelative = 0) {
+    const distance = clamp(Math.abs(trackRelative), 0, 1);
+    const easedDistance = distance * distance * (3 - 2 * distance);
+    return 1 - easedDistance * 0.18;
+  }
+
+  _detailActivePanelWorld() {
+    const panel = this._detailPanelWorld();
+    const step = this._detailPanelStep(panel);
+    const trackRelative = this.detailSwipe / Math.max(step, EPSILON);
+    const scale = this._detailCardScale(trackRelative);
+    const centerX = panel.centerX + this.detailSwipe;
+    const width = panel.width * scale;
+    const height = panel.height * scale;
+    const canvasRect = this.canvas.getBoundingClientRect();
+    const centerPixelsX = canvasRect.left
+      + (centerX / Math.max(this.viewWidth, EPSILON) + 0.5) * canvasRect.width;
+    const centerPixelsY = panel.rect.top + panel.rect.height * 0.5;
+    const widthPixels = panel.rect.width * scale;
+    const heightPixels = panel.rect.height * scale;
+    return {
+      ...panel,
+      trackRelative,
+      scale,
+      centerX,
+      width,
+      height,
+      rect: {
+        left: centerPixelsX - widthPixels * 0.5,
+        top: centerPixelsY - heightPixels * 0.5,
+        width: widthPixels,
+        height: heightPixels
+      }
+    };
+  }
+
   _detailPanelLayout(relativeProject = 0) {
     const panel = this._detailPanelWorld();
-    const step = panel.width * 1.015;
+    const step = this._detailPanelStep(panel);
+    // relativeProject is a stable slot on one horizontal track. detailSwipe
+    // is the only translating value during a project switch.
+    const trackRelative = relativeProject + this.detailSwipe / Math.max(step, EPSILON);
+    const scale = this._detailCardScale(trackRelative);
+    const centerStrength = 1 - clamp(Math.abs(trackRelative), 0, 1);
     const x = panel.centerX + relativeProject * step + this.detailSwipe;
     return {
-      // Side projects sit behind the white detail-paper. Their outer edges
-      // remain visible beyond the panel, while the paper masks any overlap
-      // instead of letting a neighbour cover the current project's content.
       position: new THREE.Vector3(
         x,
         panel.centerY,
-        relativeProject === 0 ? 0.03 : -0.12
+        -0.12 + centerStrength * 0.15
       ),
-      rotation: new THREE.Euler(0, -relativeProject * 0.055 + this.detailSwipeVelocity * -0.000025, relativeProject * 0.006),
-      scale: new THREE.Vector3(panel.width, panel.height, 1),
-      opacity: Math.abs(relativeProject) <= 1 ? 1 : 0,
-      curve: clamp(Math.abs(this.detailSwipeVelocity) / 1200 + Math.abs(relativeProject) * 0.08, 0, 0.8)
+      rotation: new THREE.Euler(
+        0,
+        -trackRelative * 0.035 + this.detailSwipeVelocity * -0.000018,
+        trackRelative * 0.004
+      ),
+      scale: new THREE.Vector3(panel.width * scale, panel.height * scale, 1),
+      opacity: Math.abs(trackRelative) <= 2.2 ? 1 : 0,
+      curve: clamp(Math.abs(this.detailSwipeVelocity) / 1200 + Math.abs(trackRelative) * 0.08, 0, 0.8),
+      trackRelative
     };
   }
 
@@ -1852,11 +1955,11 @@ export class Gallery3D {
     const offset = mediaIndex - this.detailScroll;
     return {
       position: new THREE.Vector3(
-        mediaAreaCenterX + this.detailSwipe,
+        mediaAreaCenterX,
         viewport.centerY + viewport.height * 0.5 - height * 0.5 - offset * step,
         0.08 - Math.abs(offset) * 0.025
       ),
-      rotation: new THREE.Euler(0, this.detailSwipe * -0.035, this.detailSwipeVelocity * -0.00003),
+      rotation: new THREE.Euler(0, 0, 0),
       scale: new THREE.Vector3(width, height, 1),
       opacity: clamp(1 - Math.max(0, Math.abs(offset) - 0.72) * 0.34, 0.12, 1),
       curve: clamp(Math.abs(this.detailSwipeVelocity) / 1100, 0, 0.8)
@@ -2125,7 +2228,7 @@ export class Gallery3D {
         Math.min(this.viewHeight * 0.275, 2.52)
       );
 
-      const isSelected = index === this.detailProjectIndex;
+      const isSelected = card.userData.id === this.detailProject?.id;
       const detailVisibleIndex = this.detailProject
         ? this.visibleProjects.findIndex((project) => project.id === this.detailProject.id)
         : -1;
@@ -2137,13 +2240,17 @@ export class Gallery3D {
           this.visibleProjects.length
         ) - this.visibleProjects.length / 2;
       }
-      const isDetailNeighbor = detailVisibleIndex >= 0 && cardVisibleIndex >= 0 && Math.abs(detailRelative) <= 1;
+      const isDetailTrackCard = detailVisibleIndex >= 0 && cardVisibleIndex >= 0;
+      const detailTrackLayout = isDetailTrackCard
+        ? this._detailPanelLayout(detailRelative)
+        : null;
+      const detailTrackRelative = detailTrackLayout?.trackRelative ?? detailRelative;
+      const isDetailNeighbor = isDetailTrackCard && Math.abs(detailTrackRelative) <= 2.2;
       if (this.detailMix > EPSILON) {
-        if (isDetailNeighbor) {
-          const detail = this._detailPanelLayout(detailRelative);
+        if (detailTrackLayout) {
           layout = this._mixLayout(
             { ...layout, rotation: new THREE.Euler().setFromQuaternion(layout.quaternion) },
-            detail,
+            detailTrackLayout,
             this.detailMix
           );
         } else {
@@ -2154,9 +2261,10 @@ export class Gallery3D {
 
       const activePreviewFade = 1 - previewMix * projectRingFocus * (1 - this.detailMix);
       const continuumFade = (this.useContinuumTransition ? 0 : 1) * (1 - this.detailMix);
-      // Keep the immediate neighbours as blank paper shells. Their contents
-      // stay concealed until the physical card has arrived at centre.
-      const detailSideOpacity = isDetailNeighbor && !isSelected
+      // Every preview occupies a fixed slot on the same track. Cards outside
+      // the viewport remain positioned on that track so the next preview can
+      // enter from the edge without being spawned from the center.
+      const detailSideOpacity = isDetailTrackCard && !isSelected
         ? layout.opacity * this.detailMix
         : 0;
       const ribbonOpacity = card.userData.visibleInFilter
@@ -2164,10 +2272,18 @@ export class Gallery3D {
         : 0;
       const targetOpacity = this.detailMix > EPSILON ? detailSideOpacity : ribbonOpacity;
       const responsiveness = this.pointer.down ? 24 : 13;
-      card.position.lerp(layout.position, 1 - Math.exp(-responsiveness * delta));
-      card.quaternion.slerp(layout.quaternion, 1 - Math.exp(-responsiveness * delta));
-      card.scale.lerp(layout.scale, 1 - Math.exp(-responsiveness * delta));
       const detailCarouselIsClean = this.mode === "detail" && this.detailMix > 0.9;
+      if (detailCarouselIsClean && isDetailTrackCard) {
+        // detailSwipe already has spring easing. Applying another per-card
+        // interpolation would make the cards fan out independently.
+        card.position.copy(layout.position);
+        card.quaternion.copy(layout.quaternion);
+        card.scale.copy(layout.scale);
+      } else {
+        card.position.lerp(layout.position, 1 - Math.exp(-responsiveness * delta));
+        card.quaternion.slerp(layout.quaternion, 1 - Math.exp(-responsiveness * delta));
+        card.scale.lerp(layout.scale, 1 - Math.exp(-responsiveness * delta));
+      }
       card.material.uniforms.uOpacity.value = detailCarouselIsClean
         ? targetOpacity
         : damp(card.material.uniforms.uOpacity.value, targetOpacity, 10, delta);
@@ -2177,16 +2293,27 @@ export class Gallery3D {
         card.material.needsUpdate = true;
       }
       card.material.uniforms.uCurve.value = damp(card.material.uniforms.uCurve.value, layout.curve, 11, delta);
-      const detailInward = isDetailNeighbor
-        ? clamp(Math.abs(this.detailScrollVelocity) * 0.028, 0, 0.022) * this.detailMix
-        : 0;
+      const cardWidthPixels = card.scale.x / Math.max(this.viewWidth, EPSILON)
+        * Math.max(this.canvas.clientWidth, 1);
+      const radiusPixels = this.canvas.clientWidth <= 760 ? 16 : 18;
+      const detailCornerRadius = clamp(radiusPixels / Math.max(cardWidthPixels, 1), 0.004, 0.08);
+      card.material.uniforms.uCornerRadius.value = this.detailMix > EPSILON
+        ? THREE.MathUtils.lerp(0.037, detailCornerRadius, this.detailMix)
+        : 0.037;
+      // The active card is drawn by detailPaper. Track cards stay rectangular
+      // unless they are an adjacent shell participating in a vertical media
+      // transition (handled independently by uInterlock below).
+      const detailInward = 0;
       card.material.uniforms.uInward.value = damp(
         card.material.uniforms.uInward.value,
         detailInward,
         9,
         delta
       );
-      const isDetailSideShell = isDetailNeighbor && !isSelected;
+      const isDetailSideShell = isDetailTrackCard && !isSelected;
+      if (isDetailTrackCard) {
+        card.material.uniforms.uSideSign.value = Math.sign(detailTrackRelative);
+      }
       const detailSurfaceTarget = isDetailSideShell ? this.detailMix : 0;
       card.material.uniforms.uDetail.value = detailCarouselIsClean
         ? (isDetailSideShell ? 1 : 0)
@@ -2195,6 +2322,27 @@ export class Gallery3D {
       card.material.uniforms.uMediaDetach.value = detailCarouselIsClean
         ? (isDetailSideShell ? 1 : 0)
         : damp(card.material.uniforms.uMediaDetach.value, detachTarget, 12, delta);
+      const verticalEdgeMotion = clamp(
+        Math.abs(this.detailScrollVelocity) * 0.028,
+        0,
+        0.022
+      ) * this.detailMix;
+      const immediateSideWeight = clamp(
+        1 - Math.abs(Math.abs(detailTrackRelative) - 1),
+        0,
+        1
+      );
+      const interlockTarget = isDetailSideShell
+        ? verticalEdgeMotion * immediateSideWeight
+        : 0;
+      card.material.uniforms.uInterlock.value = detailCarouselIsClean
+        ? interlockTarget
+        : damp(card.material.uniforms.uInterlock.value, interlockTarget, 11, delta);
+      const sideDepth = clamp(Math.abs(detailTrackRelative), 0, 1);
+      const depthShadeTarget = isDetailSideShell ? 0.17 * sideDepth * this.detailMix : 0;
+      card.material.uniforms.uDepthShade.value = detailCarouselIsClean
+        ? (isDetailSideShell ? 0.17 * sideDepth : 0)
+        : damp(card.material.uniforms.uDepthShade.value, depthShadeTarget, 11, delta);
       const desiredHover = card === this.hoveredCard ? 1 : 0;
       card.material.uniforms.uHover.value = damp(card.material.uniforms.uHover.value, desiredHover, 12, delta);
       card.material.uniforms.uPlaneAspect.value = Math.max(card.scale.x / Math.max(card.scale.y, EPSILON), EPSILON);
@@ -2211,10 +2359,27 @@ export class Gallery3D {
 
   _updateDetailMedia(delta) {
     const viewport = this._detailViewportWorld();
-    const clipLeft = viewport.centerX - viewport.width * 0.5;
-    const clipBottom = viewport.centerY - viewport.height * 0.5;
-    const clipRight = viewport.centerX + viewport.width * 0.5;
-    const clipTop = viewport.centerY + viewport.height * 0.5;
+    const panel = this._detailActivePanelWorld();
+    const movingPanelCenterX = panel.centerX;
+    // The artwork remains anchored while dragging. Only the paper card and
+    // this moving intersection act as a mask, matching the reference's
+    // "stationary contents behind a sliding card" interaction.
+    const clipLeft = Math.max(
+      viewport.centerX - viewport.width * 0.5,
+      movingPanelCenterX - panel.width * 0.5
+    );
+    const clipBottom = Math.max(
+      viewport.centerY - viewport.height * 0.5,
+      panel.centerY - panel.height * 0.5
+    );
+    const clipRight = Math.min(
+      viewport.centerX + viewport.width * 0.5,
+      movingPanelCenterX + panel.width * 0.5
+    );
+    const clipTop = Math.min(
+      viewport.centerY + viewport.height * 0.5,
+      panel.centerY + panel.height * 0.5
+    );
     const mediaDetach = clamp((this.detailMix - 0.72) / 0.28, 0, 1);
     if (this.reducedMotion) {
       this.detailMediaReveal = 1;
@@ -2243,6 +2408,7 @@ export class Gallery3D {
         10,
         delta
       );
+      mesh.material.uniforms.uInterlock.value = 0;
       mesh.material.uniforms.uDetail.value = 0;
       mesh.material.uniforms.uMediaDetach.value = 0;
       mesh.material.uniforms.uMediaReveal.value = this.detailMediaReveal;
@@ -2256,8 +2422,7 @@ export class Gallery3D {
       mesh.visible = mesh.material.uniforms.uOpacity.value > 0.003;
     });
 
-    const panel = this._detailPanelWorld();
-    this.detailPaper.position.set(panel.centerX + this.detailSwipe, panel.centerY, -0.03);
+    this.detailPaper.position.set(panel.centerX, panel.centerY, -0.03);
     this.detailPaper.scale.set(panel.width, panel.height, 1);
     this.detailPaper.material.uniforms.uOpacity.value = damp(
       this.detailPaper.material.uniforms.uOpacity.value,
@@ -2265,10 +2430,16 @@ export class Gallery3D {
       12,
       delta
     );
-    this.detailPaper.material.uniforms.uRadius.value = clamp(0.12 / Math.max(panel.width, 1), 0.018, 0.07);
+    const panelRadiusPixels = this.canvas.clientWidth <= 760 ? 16 : 18;
+    this.detailPaper.material.uniforms.uRadius.value = clamp(
+      panelRadiusPixels / Math.max(panel.rect.width, 1),
+      0.004,
+      0.08
+    );
+    this.detailPaper.material.uniforms.uAspect.value = panel.width / Math.max(panel.height, EPSILON);
     this.detailPaper.material.uniforms.uInward.value = damp(
       this.detailPaper.material.uniforms.uInward.value,
-      clamp(Math.abs(this.detailScrollVelocity) * 0.026, 0, 0.022),
+      clamp(Math.abs(this.detailScrollVelocity) * 0.026, 0, 0.022) * this.detailMix,
       9,
       delta
     );
@@ -2308,6 +2479,11 @@ export class Gallery3D {
     this.aboutMix = damp(this.aboutMix, this.aboutTarget, this.reducedMotion ? 1000 : 4.9, delta);
     this.ringMix = damp(this.ringMix, this.ringTarget, this.reducedMotion ? 1000 : 5.6, delta);
     this.detailMix = damp(this.detailMix, this.detailTarget, this.reducedMotion ? 1000 : 5.4, delta);
+    this.postMaterial.uniforms.uStableDetailEdges.value = clamp(
+      (this.detailMix - 0.86) / 0.14,
+      0,
+      1
+    );
 
     this.rippleTrail.forEach((sample) => {
       sample.z = Math.max(0, sample.z - delta * 1.43);
@@ -2855,7 +3031,7 @@ export class Gallery3D {
     }
 
     const panel = this._detailPanelWorld();
-    const step = panel.width * 1.015;
+    const step = this._detailPanelStep(panel);
     const outward = sign > 0 ? -1 : 1;
     this.detailSwipeTarget = outward * step;
     await this._waitForSwipeTarget(this.detailSwipeTarget);
@@ -2879,7 +3055,7 @@ export class Gallery3D {
     if (nextIndex < 0 || nextIndex === this.detailProjectIndex) return this;
 
     const panel = this._detailPanelWorld();
-    const step = panel.width * 1.015;
+    const step = this._detailPanelStep(panel);
     const sign = Math.sign(direction || 1);
     const outward = sign > 0 ? -1 : 1;
     this.detailDragging = false;

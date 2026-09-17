@@ -1,7 +1,7 @@
 let Gallery3D = null;
 let galleryModuleError = null;
 
-const galleryModulePromise = import("./scene.js?v=85")
+const galleryModulePromise = import("./scene.js?v=93")
   .then((module) => { Gallery3D = module.default; })
   .catch((error) => {
     galleryModuleError = error;
@@ -38,6 +38,7 @@ const elements = {
   workUI: $("workUI"),
   infoUI: $("infoUI"),
   ringUI: $("ringUI"),
+  ringCenter: document.querySelector(".ring-preview-center"),
   ringOverline: $("ringOverline"),
   ringTitle: $("ringTitle"),
   ringSummary: $("ringSummary"),
@@ -198,6 +199,28 @@ function renderRing(project) {
   elements.ringSummary.textContent = project.summary;
   elements.ringMeta.textContent = `${project.kicker} · ${project.year}`;
   elements.ringViewProject.setAttribute("aria-label", `View ${project.fullTitle || project.title}`);
+  requestAnimationFrame(syncRingCopyBounds);
+}
+
+function syncRingCopyBounds() {
+  if (!elements.ringCenter) return;
+  const canvasHeight = Math.max(elements.canvas?.clientHeight || window.innerHeight, 1);
+  const viewHeight = Math.max(gallery?.viewHeight || 9, 1);
+  const pixelsPerWorldUnit = canvasHeight / viewHeight;
+  // The ring shader's inner ellipse is 2.24 × 2.08 world units in radius.
+  // Keep copy inside a smaller inscribed area so no line touches the rim.
+  const holeWidth = 4.48 * pixelsPerWorldUnit;
+  const holeHeight = 4.16 * pixelsPerWorldUnit;
+  const safeWidth = Math.max(72, Math.min(holeWidth * 0.78, window.innerWidth * 0.82, 460));
+  const safeHeight = Math.max(72, holeHeight * 0.72);
+
+  elements.ringCenter.style.setProperty("--ring-copy-width", `${safeWidth.toFixed(1)}px`);
+  elements.ringCenter.style.setProperty("--ring-copy-scale", "1");
+  requestAnimationFrame(() => {
+    const contentHeight = Math.max(elements.ringCenter.scrollHeight, 1);
+    const scale = Math.min(1, safeHeight / contentHeight);
+    elements.ringCenter.style.setProperty("--ring-copy-scale", scale.toFixed(4));
+  });
 }
 
 function normalizeActiveChange(projectOrIndex, maybeIndex, maybeTotal) {
@@ -445,6 +468,31 @@ function syncDetailCardMotion() {
       ? (gallery.detailSwipe || 0) * pixelsPerWorldUnit
       : 0;
     elements.detailUI.style.setProperty("--detail-swipe-x", `${swipePixels.toFixed(2)}px`);
+
+    // Keep project copy and imagery fixed while the card itself is dragged.
+    // The moving card bounds become the reveal mask; content is replaced only
+    // after release, when Gallery3D commits the neighboring project.
+    const panelRect = gallery._detailActivePanelWorld?.().rect
+      || gallery._detailPanelWorld?.().rect;
+    if (panelRect && isDetailView) {
+      const movingLeft = panelRect.left;
+      const movingRight = movingLeft + panelRect.width;
+      const applyMovingClip = (element, prefix) => {
+        if (!element) return;
+        const rect = element.getBoundingClientRect();
+        const left = Math.min(rect.width, Math.max(0, movingLeft - rect.left));
+        const right = Math.min(rect.width, Math.max(0, rect.right - movingRight));
+        elements.detailUI.style.setProperty(`--${prefix}-clip-left`, `${left.toFixed(2)}px`);
+        elements.detailUI.style.setProperty(`--${prefix}-clip-right`, `${right.toFixed(2)}px`);
+      };
+      applyMovingClip(elements.detailCopy, "detail-copy");
+      applyMovingClip(elements.detailMediaHit, "detail-media");
+    } else {
+      elements.detailUI.style.setProperty("--detail-copy-clip-left", "0px");
+      elements.detailUI.style.setProperty("--detail-copy-clip-right", "0px");
+      elements.detailUI.style.setProperty("--detail-media-clip-left", "0px");
+      elements.detailUI.style.setProperty("--detail-media-clip-right", "0px");
+    }
   }
   detailMotionFrame = requestAnimationFrame(syncDetailCardMotion);
 }
@@ -758,6 +806,7 @@ function bindInterface() {
   window.addEventListener("resize", () => {
     gallery?.resize();
     requestAnimationFrame(syncDetailViewport);
+    requestAnimationFrame(syncRingCopyBounds);
   }, { passive: true });
   window.addEventListener("popstate", route);
 
@@ -846,6 +895,7 @@ async function boot() {
     });
     cancelAnimationFrame(detailMotionFrame);
     detailMotionFrame = requestAnimationFrame(syncDetailCardMotion);
+    document.fonts?.ready?.then(() => requestAnimationFrame(syncRingCopyBounds));
     if (new URLSearchParams(location.search).has("qa")) {
       const publishQAState = () => {
         const rect = elements.canvas.getBoundingClientRect();
