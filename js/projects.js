@@ -367,6 +367,14 @@ window.PROJECTS = [
     year: "2026",
     summary: "A spatial diagnostic tool exploring street slope, sustained wheelchair mobility burden, and potential recovery opportunities in steep urban networks.",
     detailLayout: "full-media",
+    imageLinks: [
+      {
+        imageIndex: 5,
+        href: "https://wanerrrrr.github.io/Slope_Analyser/",
+        label: "Open Slope Analyzer web map (opens in a new tab)",
+        bounds: [0.15, 0.068, 0.365, 0.04]
+      }
+    ],
     images: [
       ["assets/images/design-research/slope-analyzer/01.jpg", "Slope Analyzer — project overview"],
       ["assets/images/design-research/slope-analyzer/02.jpg", "Analysis parameters, metrics, and workflow"],

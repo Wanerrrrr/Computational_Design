@@ -1,7 +1,7 @@
 let Gallery3D = null;
 let galleryModuleError = null;
 
-const galleryModulePromise = import("./scene.js?v=94")
+const galleryModulePromise = import("./scene.js?v=95")
   .then((module) => { Gallery3D = module.default; })
   .catch((error) => {
     galleryModuleError = error;
@@ -63,6 +63,7 @@ const elements = {
   detailNotes: $("detailNotes"),
   detailLinks: $("detailLinks"),
   detailMediaHit: $("detailMediaHit"),
+  detailMediaLinks: $("detailMediaLinks"),
   detailCaption: $("detailCaption"),
   detailImageCount: $("detailImageCount"),
   detailScrollThumb: $("detailScrollThumb"),
@@ -400,6 +401,19 @@ function animateDetailContent() {
 
 function renderDetail(project) {
   if (!project) return;
+  elements.detailMediaLinks.replaceChildren();
+  (project.imageLinks || []).forEach((link) => {
+    const anchor = document.createElement("a");
+    anchor.className = "detail-media-link";
+    anchor.href = link.href;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    anchor.setAttribute("aria-label", link.label);
+    anchor.title = link.label;
+    anchor.hidden = true;
+    anchor.linkRegion = link;
+    elements.detailMediaLinks.appendChild(anchor);
+  });
   const fullMedia = project.detailLayout === "full-media";
   elements.detailUI.dataset.layout = fullMedia ? "full-media" : "split";
   elements.detailUI.setAttribute("aria-label", project.fullTitle || project.title);
@@ -479,6 +493,27 @@ function syncDetailViewport(force = false) {
   });
 }
 
+function syncDetailMediaLinks() {
+  for (const anchor of elements.detailMediaLinks.children) {
+    const region = anchor.linkRegion;
+    const image = gallery?.getDetailMediaBounds?.(region.imageIndex);
+    if (!image || document.body.dataset.view !== "detail") {
+      anchor.hidden = true;
+      continue;
+    }
+    const [x, y, w, h] = region.bounds;
+    const width = image.width * w;
+    const height = Math.max(32, image.height * h);
+    const left = image.left + image.width * x;
+    const top = image.top + image.height * y - (height - image.height * h) * 0.5;
+    anchor.hidden = top + height <= 0 || top >= elements.detailMediaHit.clientHeight;
+    anchor.style.left = `${left}px`;
+    anchor.style.top = `${top}px`;
+    anchor.style.width = `${width}px`;
+    anchor.style.height = `${height}px`;
+  }
+}
+
 function syncDetailCardMotion() {
   if (gallery && elements.detailUI) {
     const view = document.body.dataset.view;
@@ -524,6 +559,7 @@ function syncDetailCardMotion() {
       elements.detailUI.style.setProperty("--detail-media-clip-right", "0px");
     }
   }
+  syncDetailMediaLinks();
   detailMotionFrame = requestAnimationFrame(syncDetailCardMotion);
 }
 
@@ -775,7 +811,11 @@ function bindDetailInput() {
       axis: null,
       velocityX: 0
     };
-    elements.detailMediaHit.setPointerCapture(event.pointerId);
+    // A stationary press on a page link must retain native anchor behavior.
+    // Capture it only if the user starts dragging, so swipes never open it.
+    if (!event.target.closest(".detail-media-link")) {
+      elements.detailMediaHit.setPointerCapture(event.pointerId);
+    }
   });
 
   elements.detailMediaHit.addEventListener("pointermove", (event) => {
@@ -788,6 +828,9 @@ function bindDetailInput() {
     const totalY = event.clientY - detailPointer.startY;
     if (!detailPointer.axis && Math.hypot(totalX, totalY) > 7) {
       detailPointer.axis = Math.abs(totalX) > Math.abs(totalY) ? "x" : "y";
+      if (!elements.detailMediaHit.hasPointerCapture(event.pointerId)) {
+        elements.detailMediaHit.setPointerCapture(event.pointerId);
+      }
       if (detailPointer.axis === "x") gallery?.beginDetailDrag?.();
     }
     if (detailPointer.axis === "x") {

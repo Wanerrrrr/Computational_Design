@@ -735,6 +735,28 @@ body[data-view="detail-exit"] .detail-copy { opacity: 1; }
   touch-action: none;
 }
 
+.detail-media-links {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.detail-media-link {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.detail-media-link[hidden] { display: none; }
+
+.detail-media-link:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 3px;
+  background: rgba(255,255,255,.15);
+}
+
 .detail-caption {
   position: absolute;
   z-index: 2;

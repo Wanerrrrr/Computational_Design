@@ -2001,6 +2001,22 @@ export class Gallery3D {
     };
   }
 
+  getDetailMediaBounds(mediaIndex = 0) {
+    const mesh = this.detailMeshes[mediaIndex];
+    if (!mesh) return null;
+    const viewport = this._detailViewportWorld();
+    const pixelX = viewport.rect.width / viewport.width;
+    const pixelY = viewport.rect.height / viewport.height;
+    // Use the actual interpolated mesh, not the scroll target, so link
+    // regions stay attached to their pixels throughout the scroll inertia.
+    return {
+      left: (mesh.position.x - mesh.scale.x * 0.5 - viewport.centerX + viewport.width * 0.5) * pixelX,
+      top: (viewport.centerY + viewport.height * 0.5 - mesh.position.y - mesh.scale.y * 0.5) * pixelY,
+      width: mesh.scale.x * pixelX,
+      height: mesh.scale.y * pixelY
+    };
+  }
+
   _detailLayout(mediaIndex = 0, metrics = this._detailMediaMetrics()) {
     const { viewport, width, scrollUnit } = metrics;
     const item = metrics.items[mediaIndex] || {
