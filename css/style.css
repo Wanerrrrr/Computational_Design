@@ -738,7 +738,7 @@ body[data-view="detail-exit"] .detail-copy { opacity: 1; }
 .detail-caption {
   position: absolute;
   z-index: 2;
-  top: calc(74cqh - 50px);
+  top: var(--detail-caption-top, calc(100cqh - 58px));
   left: clamp(17px, 2vw, 30px);
   display: flex;
   flex-direction: column;
@@ -766,6 +766,20 @@ body[data-view="detail-exit"] .detail-copy { opacity: 1; }
   font-size: 9px;
   line-height: 1.25;
   letter-spacing: .13em;
+}
+
+/* Portfolio spreads use the entire card width, with no duplicate sidebar.
+   Keep the existing inset so artwork stays inside the rounded paper edge. */
+.detail-ui[data-layout="full-media"] .detail-copy,
+.detail-ui[data-layout="full-media"] .detail-caption {
+  display: none;
+}
+
+.detail-ui[data-layout="full-media"] .detail-media-hit {
+  top: calc(var(--panel-y) + max(14px, var(--detail-media-inset)));
+  left: calc((100vw - var(--panel-w)) / 2 + max(14px, var(--detail-media-inset)));
+  width: calc(var(--panel-w) - max(14px, var(--detail-media-inset)) * 2);
+  height: calc(var(--panel-h) - max(14px, var(--detail-media-inset)) * 2);
 }
 
 .detail-scroll-track {

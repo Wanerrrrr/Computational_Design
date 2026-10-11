@@ -93,7 +93,8 @@ export class Gallery3D {
     });
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // Documentary images must not be regraded by a filmic tone mapper.
+    this.renderer.toneMapping = THREE.NoToneMapping;
     this.renderer.toneMappingExposure = 1;
     if (this.renderer.debug) {
       this.renderer.debug.onShaderError = (gl, program, vertexShader, fragmentShader) => {
@@ -859,7 +860,7 @@ export class Gallery3D {
           float distanceToEdge = roundedBoxSDF(roundedPoint, roundedBounds, uRadius);
           float edgeAA = max(fwidth(distanceToEdge) * 0.58, 0.00025);
           float alpha = 1.0 - smoothstep(-edgeAA, edgeAA, distanceToEdge);
-          vec3 paper = vec3(0.938, 0.935, 0.912);
+          vec3 paper = sRGBTransferEOTF(vec4(0.938, 0.935, 0.912, 1.0)).rgb;
           gl_FragColor = vec4(paper, alpha * uOpacity);
         }
       `
@@ -877,9 +878,11 @@ export class Gallery3D {
       minFilter: THREE.LinearFilter,
       magFilter: THREE.LinearFilter,
       format: THREE.RGBAFormat,
-      type: THREE.UnsignedByteType
+      type: THREE.HalfFloatType
     });
-    this.renderTarget.texture.colorSpace = THREE.SRGBColorSpace;
+    // Texture inputs decode sRGB into linear light. Keep the intermediate
+    // framebuffer linear, then encode to display sRGB exactly once below.
+    this.renderTarget.texture.colorSpace = THREE.LinearSRGBColorSpace;
 
     this.postScene = new THREE.Scene();
     this.postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -959,6 +962,7 @@ export class Gallery3D {
           float blue = texture2D(tScene, vUv + displacement - vec2(chroma, 0.0)).b;
           center.rgb = vec3(red, center.g, blue);
           gl_FragColor = center;
+          #include <colorspace_fragment>
         }
       `
     });
@@ -1216,7 +1220,9 @@ export class Gallery3D {
             vWorldPosition.x < uClipRect.x || vWorldPosition.y < uClipRect.y ||
             vWorldPosition.x > uClipRect.z || vWorldPosition.y > uClipRect.w
           )) discard;
-          vec2 sourceUv = coverUv(vUv, uPlaneAspect);
+          // Detail planes already have the source image's natural aspect.
+          // Never apply the homepage's cover/cropping UVs to detail media.
+          vec2 sourceUv = uIsMedia > 0.5 ? vUv : coverUv(vUv, uPlaneAspect);
           vec2 polar = vUv - 0.5;
           float theta = atan(polar.y, polar.x);
           float radial = length(polar);
@@ -1241,14 +1247,16 @@ export class Gallery3D {
           float imageStart = smoothstep(0.362, 0.378, vUv.x);
           float imageEnd = 1.0 - smoothstep(0.925, 0.938, vUv.x);
           float imageSide = imageStart * imageEnd;
-          vec3 mediaWell = mix(detailImage, vec3(0.855, 0.852, 0.830), uMediaDetach);
-          vec3 desktopDetail = mix(vec3(0.938, 0.935, 0.912), mediaWell, imageSide);
+          vec3 paperColor = sRGBTransferEOTF(vec4(0.938, 0.935, 0.912, 1.0)).rgb;
+          vec3 wellColor = sRGBTransferEOTF(vec4(0.855, 0.852, 0.830, 1.0)).rgb;
+          vec3 mediaWell = mix(detailImage, wellColor, uMediaDetach);
+          vec3 desktopDetail = mix(paperColor, mediaWell, imageSide);
 
           vec2 mobileUv = vec2(vUv.x, clamp(vUv.y / 0.48, 0.0, 1.0));
           vec3 mobileImage = texture2D(uTexture, coverUv(mobileUv, uPlaneAspect / 0.48)).rgb;
-          vec3 mobileWell = mix(mobileImage, vec3(0.855, 0.852, 0.830), uMediaDetach);
+          vec3 mobileWell = mix(mobileImage, wellColor, uMediaDetach);
           float mobileImageSide = 1.0 - smoothstep(0.475, 0.49, vUv.y);
-          vec3 mobileDetail = mix(vec3(0.938, 0.935, 0.912), mobileWell, mobileImageSide);
+          vec3 mobileDetail = mix(paperColor, mobileWell, mobileImageSide);
           vec3 detailColor = mix(desktopDetail, mobileDetail, uMobile);
           // uCornerRadius is measured against card width. Correct the UV's Y
           // axis by the rendered aspect ratio so the SDF produces a true
@@ -1366,6 +1374,16 @@ export class Gallery3D {
       if (this.destroyed || mesh.userData.source !== source) return;
       mesh.material.uniforms.uTexture.value = asset.texture;
       mesh.material.uniforms.uImageAspect.value = asset.aspect || 1;
+      if (mesh.userData.isDetailMedia) {
+        mesh.userData.imageAspect = asset.aspect || 1;
+        // Loading a portrait or a wide chart changes its height, not its UVs.
+        // Reflow the stack together so no temporary stretched image is shown.
+        this.detailMeshes.forEach((media, index) => {
+          const layout = this._detailLayout(index);
+          media.position.copy(layout.position);
+          media.scale.copy(layout.scale);
+        });
+      }
       mesh.material.uniforms.uAnimated.value = asset.animated ? 1 : 0;
       mesh.material.needsUpdate = true;
     });
@@ -1946,22 +1964,60 @@ export class Gallery3D {
     };
   }
 
-  _detailLayout(mediaIndex = 0) {
+  _detailMediaMetrics() {
     const viewport = this._detailViewportWorld();
-    const mediaAreaCenterX = viewport.centerX;
     const width = viewport.width;
-    const height = Math.min(width / 1.36, viewport.height * 0.74);
-    const step = height + viewport.height * 0.035;
-    const offset = mediaIndex - this.detailScroll;
+    const gap = viewport.height * 0.035;
+    // Retain the existing wheel sensitivity/spring units, independently of
+    // individual image heights. Only the stack's layout and end bound change.
+    const scrollUnit = Math.max(Math.min(width / 1.36, viewport.height * 0.74) + gap, EPSILON);
+    let contentHeight = 0;
+    const items = this.detailMeshes.map((mesh) => {
+      const aspect = Math.max(mesh.userData.imageAspect || 1.36, EPSILON);
+      const height = width / aspect;
+      const item = { top: contentHeight, height };
+      contentHeight += height + gap;
+      return item;
+    });
+    contentHeight = Math.max(0, contentHeight - gap);
+    const maxScroll = Math.max(0, contentHeight - viewport.height) / scrollUnit;
+    return { viewport, width, gap, scrollUnit, items, contentHeight, maxScroll };
+  }
+
+  getDetailMediaState() {
+    const metrics = this._detailMediaMetrics();
+    const { viewport, items, scrollUnit, contentHeight, maxScroll } = metrics;
+    const scrollOffset = clamp(this.detailScroll, 0, maxScroll) * scrollUnit;
+    const focus = Math.min(scrollOffset + viewport.height * 0.45, contentHeight - EPSILON);
+    const index = Math.max(0, items.findIndex((item) => item.top + item.height > focus));
+    const item = items[index];
+    return {
+      index,
+      total: items.length,
+      progress: maxScroll > 0 ? clamp(this.detailScroll / maxScroll, 0, 1) : 0,
+      bottomPixels: item
+        ? (item.top + item.height - scrollOffset) / viewport.height * viewport.rect.height
+        : viewport.rect.height
+    };
+  }
+
+  _detailLayout(mediaIndex = 0, metrics = this._detailMediaMetrics()) {
+    const { viewport, width, scrollUnit } = metrics;
+    const item = metrics.items[mediaIndex] || {
+      top: metrics.contentHeight + (metrics.items.length ? metrics.gap : 0),
+      height: width / 1.36
+    };
+    const { height } = item;
+    const offset = item.top - this.detailScroll * scrollUnit;
     return {
       position: new THREE.Vector3(
-        mediaAreaCenterX,
-        viewport.centerY + viewport.height * 0.5 - height * 0.5 - offset * step,
-        0.08 - Math.abs(offset) * 0.025
+        viewport.centerX,
+        viewport.centerY + viewport.height * 0.5 - height * 0.5 - offset,
+        0
       ),
       rotation: new THREE.Euler(0, 0, 0),
       scale: new THREE.Vector3(width, height, 1),
-      opacity: clamp(1 - Math.max(0, Math.abs(offset) - 0.72) * 0.34, 0.12, 1),
+      opacity: 1,
       curve: clamp(Math.abs(this.detailSwipeVelocity) / 1100, 0, 0.8)
     };
   }
@@ -2389,12 +2445,13 @@ export class Gallery3D {
       const revealProgress = clamp((now - this.detailMediaRevealStart) / 460, 0, 1);
       this.detailMediaReveal = 1 - Math.pow(1 - revealProgress, 4);
     }
+    const metrics = this._detailMediaMetrics();
     this.detailMeshes.forEach((mesh, detailIndex) => {
-      const layout = this._detailLayout(detailIndex);
+      const layout = this._detailLayout(detailIndex, metrics);
       mesh.position.lerp(layout.position, 1 - Math.exp(-13 * delta));
       const targetQuaternion = new THREE.Quaternion().setFromEuler(layout.rotation);
       mesh.quaternion.slerp(targetQuaternion, 1 - Math.exp(-13 * delta));
-      mesh.scale.lerp(layout.scale, 1 - Math.exp(-13 * delta));
+      mesh.scale.copy(layout.scale);
       mesh.material.uniforms.uOpacity.value = damp(
         mesh.material.uniforms.uOpacity.value,
         layout.opacity * mediaDetach,
@@ -2489,7 +2546,8 @@ export class Gallery3D {
       sample.z = Math.max(0, sample.z - delta * 1.43);
     });
 
-    const detailMax = Math.max(0, this.detailMeshes.length - 1);
+    const detailMax = this._detailMediaMetrics().maxScroll;
+    this.detailScrollTarget = clamp(this.detailScrollTarget, 0, detailMax);
     if (this.mode === "detail" && detailMax > 0) {
       // A damped spring integrates real velocity so wheel/touch input keeps
       // travelling briefly after release, then settles without a hard snap.
@@ -2559,9 +2617,11 @@ export class Gallery3D {
       }
     }
 
-    const nextMedia = clamp(Math.round(this.detailScroll), 0, Math.max(0, this.detailMeshes.length - 1));
-    if (nextMedia !== this.detailMediaIndex) {
+    const mediaState = this.getDetailMediaState();
+    const nextMedia = mediaState.index;
+    if (nextMedia !== this.detailMediaIndex || Math.abs(mediaState.progress - (this.detailMediaProgress || 0)) > 0.002) {
       this.detailMediaIndex = nextMedia;
+      this.detailMediaProgress = mediaState.progress;
       try {
         this.callbacks.onDetailMediaChange({
           project: this.detailProject,
@@ -2569,7 +2629,7 @@ export class Gallery3D {
           total: this.detailMeshes.length,
           alt: projectImageAlt(this.detailProject, nextMedia),
           caption: projectImageAlt(this.detailProject, nextMedia),
-          progress: this.detailMeshes.length > 1 ? nextMedia / (this.detailMeshes.length - 1) : 0
+          progress: mediaState.progress
         });
       } catch (error) { console.error(error); }
     }
@@ -2943,10 +3003,11 @@ export class Gallery3D {
     this.detailScroll = this.detailScrollTarget = 0;
     this.detailScrollVelocity = 0;
     this.detailMediaIndex = 0;
+    this.detailMediaProgress = 0;
   }
 
   scrollDetail(deltaPixels) {
-    const max = Math.max(0, this.detailMeshes.length - 1);
+    const max = this._detailMediaMetrics().maxScroll;
     const impulse = clamp(deltaPixels, -180, 180);
     this.detailScrollTarget = clamp(this.detailScrollTarget + impulse * 0.0018, 0, max);
     this.detailScrollVelocity += impulse * 0.0042;
@@ -2954,7 +3015,7 @@ export class Gallery3D {
   }
 
   setDetailScroll(value, velocity = 0) {
-    const max = Math.max(0, this.detailMeshes.length - 1);
+    const max = this._detailMediaMetrics().maxScroll;
     this.detailScrollTarget = clamp(value, 0, max);
     this.detailScrollVelocity = velocity;
     return this;

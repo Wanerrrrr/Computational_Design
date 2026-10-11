@@ -245,7 +245,8 @@ window.PROJECTS = [
       ["assets/images/mapping/network-distance/euclidean-connections.png", "Straight-line connections"],
       ["assets/images/mapping/network-distance/shortest-routes.png", "Shortest pedestrian routes"],
       ["assets/images/mapping/network-distance/distance-comparison.png", "Euclidean and network-distance comparison"],
-      ["assets/images/mapping/network-distance/detour-ratio.png", "Detour ratio by destination"]
+      ["assets/images/mapping/network-distance/detour-ratio.png", "Detour ratio by destination"],
+      ["assets/images/mapping/network-distance/08_distance_scatterplot.png", "Euclidean and network-distance scatterplot"]
     ]
   },
   {
@@ -301,10 +302,78 @@ window.PROJECTS = [
     images: [
       ["assets/images/mapping/open-streets/hero.png", "NYC Open Streets capstone overview"],
       ["assets/images/mapping/open-streets/time-availability.png", "Temporal availability"],
+      ["assets/images/mapping/open-streets/02_daily_hours_distribution.png", "Daily operating-hours distribution"],
+      ["assets/images/mapping/open-streets/03_daily_hours_by_weekday.png", "Daily operating hours by weekday"],
+      ["assets/images/mapping/open-streets/04_full_period_hours_distribution.png", "Full-period operating-hours distribution"],
       ["assets/images/mapping/open-streets/approved-hours-map.png", "Approved operating hours"],
       ["assets/images/mapping/open-streets/site-concentration.png", "Open Streets site concentration"],
+      ["assets/images/mapping/open-streets/06_site_count_by_borough.png", "Open Streets site count by borough"],
+      ["assets/images/mapping/open-streets/07_site_density_by_borough.png", "Open Streets site density by borough"],
+      ["assets/images/mapping/open-streets/08_length_density_by_borough.png", "Open Streets length density by borough"],
       ["assets/images/mapping/open-streets/ten-minute-access.png", "Approximate ten-minute walking access"],
       ["assets/images/mapping/open-streets/access-by-borough.png", "Access by borough"]
+    ]
+  },
+  {
+    id: "with-herself",
+    number: "12",
+    course: "research",
+    courseName: "Design Research",
+    title: "With Herself",
+    kicker: "Wearable Interaction · AR Companion",
+    year: "2025–2026",
+    summary: "An AR smart-glasses companion exploring safety, presence, and support for women travelling alone.",
+    detailLayout: "full-media",
+    images: [
+      ["assets/images/design-research/with-herself/01.jpg", "With Herself — project overview"],
+      ["assets/images/design-research/with-herself/02.jpg", "Background research and interviews"],
+      ["assets/images/design-research/with-herself/03.jpg", "AR glasses — inspiration and structural design"],
+      ["assets/images/design-research/with-herself/04.jpg", "AR glasses — styling studies"],
+      ["assets/images/design-research/with-herself/05.jpg", "3D printing and fabrication"],
+      ["assets/images/design-research/with-herself/06.jpg", "Risk detection and Arduino prototype"],
+      ["assets/images/design-research/with-herself/07.jpg", "App design and interaction flows"],
+      ["assets/images/design-research/with-herself/08.jpg", "High-fidelity app and AR interface"],
+      ["assets/images/design-research/with-herself/09.jpg", "In-context experience and wearable styling"]
+    ]
+  },
+  {
+    id: "tongue-trace",
+    number: "13",
+    course: "research",
+    courseName: "Design Research",
+    title: "Tongue Trace",
+    kicker: "Health Interaction · Data Visualization",
+    year: "2025",
+    summary: "A health-app design project exploring tongue-image analysis and dynamic visualization for ongoing self-awareness.",
+    detailLayout: "full-media",
+    images: [
+      ["assets/images/design-research/tongue-trace/01.jpg", "Tongue Trace — project overview"],
+      ["assets/images/design-research/tongue-trace/02.jpg", "Research context and design question"],
+      ["assets/images/design-research/tongue-trace/03.jpg", "Tongue appearance and medical data foundation"],
+      ["assets/images/design-research/tongue-trace/04.jpg", "Analysis code and interpretation system"],
+      ["assets/images/design-research/tongue-trace/05.jpg", "Visual construction and particle generation"],
+      ["assets/images/design-research/tongue-trace/06.jpg", "Dynamic visualization studies"],
+      ["assets/images/design-research/tongue-trace/07.jpg", "App flow, wireframes, and user testing"],
+      ["assets/images/design-research/tongue-trace/08.jpg", "Final UI and in-context use"]
+    ]
+  },
+  {
+    id: "slope-analyzer",
+    number: "14",
+    course: "research",
+    courseName: "Design Research",
+    title: "Slope Analyzer",
+    kicker: "Urban Accessibility · Spatial Tool",
+    year: "2026",
+    summary: "A spatial diagnostic tool exploring street slope, sustained wheelchair mobility burden, and potential recovery opportunities in steep urban networks.",
+    detailLayout: "full-media",
+    images: [
+      ["assets/images/design-research/slope-analyzer/01.jpg", "Slope Analyzer — project overview"],
+      ["assets/images/design-research/slope-analyzer/02.jpg", "Analysis parameters, metrics, and workflow"],
+      ["assets/images/design-research/slope-analyzer/03.jpg", "Grasshopper definition and street-analysis output"],
+      ["assets/images/design-research/slope-analyzer/04.jpg", "Street-network and landing-opportunity analysis"],
+      ["assets/images/design-research/slope-analyzer/05.jpg", "Applying the tool to Washington Heights"],
+      ["assets/images/design-research/slope-analyzer/06.jpg", "Interactive web-map views"]
     ]
   }
 ];

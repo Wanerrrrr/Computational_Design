@@ -1,7 +1,7 @@
 let Gallery3D = null;
 let galleryModuleError = null;
 
-const galleryModulePromise = import("./scene.js?v=93")
+const galleryModulePromise = import("./scene.js?v=94")
   .then((module) => { Gallery3D = module.default; })
   .catch((error) => {
     galleryModuleError = error;
@@ -77,7 +77,8 @@ const elements = {
 const filterDefinitions = [
   ["all", "All"],
   ["cdw", "CDW"],
-  ["mapping", "Mapping"]
+  ["mapping", "Mapping"],
+  ["research", "Research"]
 ];
 
 let gallery = null;
@@ -268,7 +269,8 @@ function renderIndex() {
   elements.indexList.replaceChildren();
   const groups = [
     ["Computational Design Workflows", allProjects.filter((project) => project.course === "cdw")],
-    ["Mapping Systems", allProjects.filter((project) => project.course === "mapping")]
+    ["Mapping Systems", allProjects.filter((project) => project.course === "mapping")],
+    ["Design Research", allProjects.filter((project) => project.course === "research")]
   ];
 
   groups.forEach(([label, projects]) => {
@@ -352,6 +354,7 @@ function splitDetailSummaryIntoLines(text, { prime = true } = {}) {
 }
 
 function animateDetailContent() {
+  if (elements.detailUI.dataset.layout === "full-media") return;
   const title = elements.detailTitle.querySelector(".detail-title__inner");
   const lines = [...elements.detailSummary.querySelectorAll(".detail-line-text")];
   const metadata = [
@@ -397,6 +400,23 @@ function animateDetailContent() {
 
 function renderDetail(project) {
   if (!project) return;
+  const fullMedia = project.detailLayout === "full-media";
+  elements.detailUI.dataset.layout = fullMedia ? "full-media" : "split";
+  elements.detailUI.setAttribute("aria-label", project.fullTitle || project.title);
+  elements.detailCopy.setAttribute("aria-hidden", String(fullMedia));
+  elements.detailMediaHit.setAttribute("aria-label", `Scroll ${project.title} images`);
+  if (fullMedia) {
+    // The portfolio pages contain their own typography and explanations.
+    // Do not duplicate them in a sidebar or overlay additional captions.
+    elements.detailOverline.replaceChildren();
+    elements.detailTitle.replaceChildren();
+    elements.detailSummary.replaceChildren();
+    elements.detailSummary.dataset.text = "";
+    elements.detailNotes.replaceChildren();
+    elements.detailLinks.replaceChildren();
+    syncDetailViewport(true);
+    return;
+  }
   setMaskedDetailText(
     elements.detailOverline,
     `${project.number} / ${pad(allProjects.length)} · ${project.courseName} · ${project.year}`,
@@ -443,10 +463,11 @@ function renderDetail(project) {
     element.style.transform = reducedMotion ? "translateY(0)" : "translateY(115%)";
   });
   elements.detailScrollThumb.style.transform = "translateY(0)";
+  syncDetailViewport(true);
 }
 
-function syncDetailViewport() {
-  if (!gallery || document.body.dataset.view !== "detail") return;
+function syncDetailViewport(force = false) {
+  if (!gallery || (!force && document.body.dataset.view !== "detail")) return;
   const rect = elements.detailMediaHit.getBoundingClientRect();
   gallery.setDetailViewport?.({
     x: rect.left,
@@ -487,6 +508,15 @@ function syncDetailCardMotion() {
       };
       applyMovingClip(elements.detailCopy, "detail-copy");
       applyMovingClip(elements.detailMediaHit, "detail-media");
+      const mediaState = gallery.getDetailMediaState?.();
+      if (mediaState) {
+        const caption = elements.detailCaption.parentElement;
+        const viewportHeight = elements.detailMediaHit.clientHeight;
+        const inset = 18;
+        const top = Math.max(inset, Math.min(viewportHeight, mediaState.bottomPixels)
+          - caption.offsetHeight - inset);
+        elements.detailMediaHit.style.setProperty("--detail-caption-top", `${top.toFixed(2)}px`);
+      }
     } else {
       elements.detailUI.style.setProperty("--detail-copy-clip-left", "0px");
       elements.detailUI.style.setProperty("--detail-copy-clip-right", "0px");
